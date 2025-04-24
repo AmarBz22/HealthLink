@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -8,27 +10,32 @@ import AddProductPage from "./pages/AddProductPage";
 import Layout from "./components/Layouts";
 import SignupPage from "./pages/Singup";
 import EditProfilePage from "./pages/EditProfile";
-import { useEffect, useState } from "react";
 import StoreListingPage from "./pages/StoreList";
+import StoreDetailsPage from "./pages/StoreDetails";
+import EditProductPage from "./pages/EditProduct";
+import UsersManagementPage from "./pages/UserManagementPage";
+import EditStorePage from "./pages/EditStore";
+import RegistrationConfirmation from "./pages/RegistrationConfiramtion";
+import RegistrationRequestsPage from "./pages/RegistrationRequests";
 
-// Auth Check Component
+// ✅ AuthCheck for protected routes
 function AuthCheck({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const authToken = localStorage.getItem('authToken');
+        const authToken = localStorage.getItem("authToken");
         if (!authToken) {
           setIsAuthenticated(false);
           return;
         }
 
-        const response = await fetch('http://localhost:8000/api/user', {
+        const response = await fetch("http://localhost:8000/api/user", {
           headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Accept': 'application/json'
-          }
+            Authorization: `Bearer ${authToken}`,
+            Accept: "application/json",
+          },
         });
 
         setIsAuthenticated(response.ok);
@@ -41,7 +48,7 @@ function AuthCheck({ children }) {
   }, []);
 
   if (isAuthenticated === null) {
-    return <div>Loading...</div>; // Or your loading spinner
+    return <div>Loading...</div>;
   }
 
   return isAuthenticated ? children : <Navigate to="/login" replace />;
@@ -51,13 +58,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
+        {/* ✅ Public Routes */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/singup" element={<SignupPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
 
-        {/* Protected Routes */}
-        <Route 
-          path="/" 
+        {/* ✅ Protected Routes */}
+        <Route
+          path="/"
           element={
             <AuthCheck>
               <Layout />
@@ -66,22 +74,29 @@ function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          
+
           <Route path="profile">
             <Route index element={<ProfilePage />} />
             <Route path="edit" element={<EditProfilePage />} />
           </Route>
-          
+
           <Route path="store">
-            <Route index element={<StoreListingPage/>} />
+            <Route index element={<StoreListingPage />} />
             <Route path="add" element={<StoreManagementPage />} />
+            <Route path=":id" element={<StoreDetailsPage />} />
+            <Route path=":id/editStore" element={<EditStorePage />} />
             <Route path="items" element={<StoreItemsPage />} />
-            <Route path="items/add" element={<AddProductPage />} />
-            <Route path="items/edit/:id" element={<AddProductPage />} />
+            <Route path=":id/addProduct" element={<AddProductPage />} />
+            <Route path=":storeId/products/:productId/edit" element={<EditProductPage />} />
+            </Route>
+
+          <Route path="users" >
+            <Route index element={<UsersManagementPage />} />
+            <Route path="registration-requests" element={<RegistrationRequestsPage />} />
           </Route>
         </Route>
 
-        {/* Redirect all unmatched paths */}
+        {/* ❌ Catch-all route: redirect to login */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

@@ -18,8 +18,8 @@ const Layout = () => {
         </aside>
 
         {/* Scrollable Main Content */}
-        <main className="flex-1 ml-24 overflow-y-auto bg-gray-100"> {/* Added bg-gray-100 here */}
-          <div className="max-w-4xl mx-auto p-6 min-h-full bg-gray-100"> {/* And here */}
+        <main className="flex-1 ml-20 overflow-y-auto bg-gray-100"> {/* Adjusted ml-24 to ml-32 */}
+          <div className="max-w-5xl mx-auto p-6 min-h-full bg-gray-100"> {/* Adjusted max-w-4xl to max-w-5xl */}
             <Outlet />
           </div>
         </main>

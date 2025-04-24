@@ -17,8 +17,6 @@ const ProfilePage = () => {
     password: "********"
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -59,7 +57,7 @@ const ProfilePage = () => {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6 flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
       </div>
     );
   }
@@ -68,7 +66,7 @@ const ProfilePage = () => {
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-500 px-6 py-4">
+        <div className="bg-[#00796B] px-6 py-4">
           <h2 className="text-2xl font-bold text-white">
             User Profile
           </h2>
@@ -84,30 +82,30 @@ const ProfilePage = () => {
                   <img
                     src={user.profilePic}
                     alt="Profile"
-                    className="w-32 h-32 rounded-full border-4 border-blue-100 object-cover"
+                    className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] object-cover"
                   />
                 ) : (
-                  <div className="w-32 h-32 rounded-full border-4 border-blue-100 bg-gray-200 flex items-center justify-center">
+                  <div className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center">
                     <FiUser className="text-4xl text-gray-400" />
                   </div>
                 )}
                 <button 
                   onClick={handleEditClick}
-                  className="absolute -bottom-2 right-0 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-all"
+                  className="absolute -bottom-2 right-0 bg-[#00796B] text-white p-2 rounded-full hover:bg-[#00695C] transition-all shadow-md"
                 >
-                  <FiEdit className="text-lg" />
+                  <FiCamera className="text-lg" />
                 </button>
               </div>
               <h3 className="mt-3 text-xl font-semibold text-gray-800">
                 {user.first_name} {user.last_name}
               </h3>
-              <p className="text-blue-500 font-medium capitalize">{user.role}</p>
+              <p className="text-[#00796B] font-medium capitalize">{user.role}</p>
             </div>
 
             <div className="flex-1 flex justify-end">
               <button
                 onClick={handleEditClick}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+                className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] flex items-center transition-colors shadow-md"
               >
                 <FiEdit className="mr-2" /> Edit Profile
               </button>
@@ -119,7 +117,7 @@ const ProfilePage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Personal Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-blue-500 border-b pb-2 flex items-center">
+                <h3 className="text-lg font-semibold text-[#00796B] border-b pb-2 flex items-center">
                   <FiUser className="mr-2" /> Personal Information
                 </h3>
                 <ProfileField label="First Name" value={user.first_name} />
@@ -130,11 +128,11 @@ const ProfilePage = () => {
 
               {/* Additional Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-blue-500 border-b pb-2 flex items-center">
+                <h3 className="text-lg font-semibold text-[#00796B] border-b pb-2 flex items-center">
                   <FiMapPin className="mr-2" /> Location
                 </h3>
                 <ProfileField label="Wilaya" value={user.wilaya} />
-                <ProfileField label="Role" value={user.role} />
+                <ProfileField label="Role" value={user.role} icon={<FiBriefcase />} />
               </div>
             </div>
           </div>

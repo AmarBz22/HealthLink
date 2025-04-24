@@ -1,26 +1,29 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FiSave, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const AddProductPage = () => {
-  const { id } = useParams();
+const EditProductPage = () => {
+  const { storeId, productId } = useParams();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   const [productData, setProductData] = useState({
-    store_id: id,
+    store_id: storeId,
     product_name: "",
     description: "",
     price: "",
     stock: "",
-    category: "Medical Devices"
+    category: "Medical Devices",
+    image_url: ""
   });
 
   const [previewImage, setPreviewImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const categories = [
     "Medical Devices",
@@ -31,8 +34,66 @@ const AddProductPage = () => {
     "Health Supplements"
   ];
 
+  useEffect(() => {
+    const fetchProductAndVerifyOwner = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+
+        const headers = {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        };
+
+        // Fetch product data and user data in parallel
+        const [productResponse, userResponse] = await Promise.all([
+          axios.get(`http://localhost:8000/api/products/${productId}`, { headers }),
+          axios.get('http://localhost:8000/api/user', { headers }).catch(() => null)
+        ]);
+
+        const product = productResponse.data;
+        const storeResponse = await axios.get(`http://localhost:8000/api/stores/${storeId}`, { headers });
+        
+        // Check if current user is the owner
+        if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
+          setIsOwner(true);
+        } else {
+          toast.error("You don't have permission to edit this product");
+          navigate(`/store/${storeId}`);
+          return;
+        }
+
+        setProductData({
+          store_id: storeId,
+          product_name: product.product_name,
+          description: product.description,
+          price: product.price,
+          stock: product.stock,
+          category: product.category,
+          image_url: product.image_url
+        });
+
+        if (product.image_url) {
+          setPreviewImage(`http://localhost:8000/storage/${product.image_url}`);
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error:", error);
+        toast.error(error.response?.data?.message || "Failed to load product data");
+        navigate(`/store/${storeId}`);
+      }
+    };
+
+    fetchProductAndVerifyOwner();
+  }, [productId, storeId, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isOwner) return;
+    
     setIsSubmitting(true);
 
     try {
@@ -42,7 +103,7 @@ const AddProductPage = () => {
       }
 
       const formData = new FormData();
-      formData.append("store_id", productData.store_id);
+      formData.append("_method", "PUT"); // For Laravel to recognize PUT request
       formData.append("product_name", productData.product_name);
       formData.append("description", productData.description);
       formData.append("price", productData.price);
@@ -54,7 +115,7 @@ const AddProductPage = () => {
       }
 
       const response = await axios.post(
-        `http://localhost:8000/api/products`,
+        `http://localhost:8000/api/products/${productId}`,
         formData,
         {
           headers: {
@@ -64,11 +125,11 @@ const AddProductPage = () => {
         }
       );
 
-      toast.success("Product created successfully");
-      navigate(`/store/${id}`);
+      toast.success("Product updated successfully");
+      navigate(`/store/${storeId}`);
     } catch (error) {
-      console.error("Error creating product:", error);
-      toast.error(error.response?.data?.message || "Failed to create product");
+      console.error("Error updating product:", error);
+      toast.error(error.response?.data?.message || "Failed to update product");
     } finally {
       setIsSubmitting(false);
     }
@@ -81,31 +142,58 @@ const AddProductPage = () => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && file.size <= 2 * 1024 * 1024) { // 2MB limit
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result);
       };
       reader.readAsDataURL(file);
+    } else if (file) {
+      toast.error("Image size should be less than 2MB");
     }
   };
 
   const removeImage = () => {
     setSelectedFile(null);
-    setPreviewImage(null);
+    setPreviewImage(productData.image_url ? `http://localhost:8000/storage/${productData.image_url}` : null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-md text-center max-w-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
+          <p className="text-gray-600 mb-4">You don't have permission to edit this product.</p>
+          <button
+            onClick={() => navigate(`/store/${storeId}`)}
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
+          >
+            Return to Store
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Add New Product</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Edit Product</h1>
           <Link 
-            to={`/store`} 
+            to={`/store/${storeId}`} 
             className="flex items-center text-gray-600 hover:text-[#00796B] transition-colors"
           >
             <FiX className="mr-1" /> Cancel
@@ -114,7 +202,7 @@ const AddProductPage = () => {
 
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Basic Information */}
+            {/* Basic Information Section */}
             <div className="space-y-4">
               <h2 className="text-lg font-medium text-[#00796B] border-b pb-2">Product Information</h2>
               
@@ -127,6 +215,8 @@ const AddProductPage = () => {
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
+                  minLength="3"
+                  maxLength="255"
                 />
               </div>
 
@@ -153,26 +243,30 @@ const AddProductPage = () => {
                   onChange={handleChange}
                   rows={3}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  maxLength="500"
                 />
               </div>
             </div>
 
-            {/* Pricing & Inventory */}
+            {/* Pricing & Inventory Section */}
             <div className="space-y-4">
               <h2 className="text-lg font-medium text-[#00796B] border-b pb-2">Pricing & Inventory</h2>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price (USD)*</label>
-                <input
-                  type="number"
-                  name="price"
-                  min="0"
-                  step="0.01"
-                  value={productData.price}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
-                  required
-                />
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    name="price"
+                    min="0"
+                    step="0.01"
+                    value={productData.price}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-md pl-7 pr-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -188,7 +282,7 @@ const AddProductPage = () => {
                 />
               </div>
 
-              {/* Image Upload */}
+              {/* Image Upload Section */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
                 {previewImage ? (
@@ -202,6 +296,7 @@ const AddProductPage = () => {
                       type="button"
                       onClick={removeImage}
                       className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm border border-gray-300 hover:bg-gray-50"
+                      aria-label="Remove image"
                     >
                       <FiTrash2 className="h-4 w-4 text-gray-500" />
                     </button>
@@ -225,6 +320,7 @@ const AddProductPage = () => {
                       className="hidden"
                       onChange={handleImageChange}
                       accept="image/png, image/jpeg, image/jpg"
+                      aria-label="Product image upload"
                     />
                   </label>
                 )}
@@ -244,11 +340,11 @@ const AddProductPage = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  Updating...
                 </>
               ) : (
                 <>
-                  <FiSave className="mr-2" /> Save Product
+                  <FiSave className="mr-2" /> Update Product
                 </>
               )}
             </button>
@@ -259,4 +355,4 @@ const AddProductPage = () => {
   );
 };
 
-export default AddProductPage;
+export default EditProductPage;

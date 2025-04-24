@@ -22,12 +22,10 @@ const EditProfilePage = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [passwordError, setPasswordError] = useState("");
 
-    // Get auth token from localStorage
     const getAuthToken = () => {
         return localStorage.getItem('authToken');
     };
 
-    // Fetch user data on component mount
     useEffect(() => {
         const fetchUserData = async () => {
             try {
@@ -85,55 +83,55 @@ const EditProfilePage = () => {
     };
 
     const verifyPassword = async () => {
-    if (!confirmPassword) {
-        setPasswordError("Please enter your password");
-        return;
-    }
-
-    try {
-        const authToken = getAuthToken();
-        if (!authToken) {
-            throw new Error('No authentication token found');
+        if (!confirmPassword) {
+            setPasswordError("Please enter your password");
+            return;
         }
 
-        const response = await fetch('http://localhost:8000/api/user', {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                first_name: user.first_name,
-                last_name: user.last_name,
-                email: user.email,
-                phone_number: user.phone_number,
-                wilaya: user.wilaya,
-                password: user.password || undefined, // Only send if changed
-                current_password: confirmPassword
-            })
-        });
+        try {
+            const authToken = getAuthToken();
+            if (!authToken) {
+                throw new Error('No authentication token found');
+            }
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to update profile");
-        }
+            const response = await fetch('http://localhost:8000/api/user', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    email: user.email,
+                    phone_number: user.phone_number,
+                    wilaya: user.wilaya,
+                    password: user.password || undefined,
+                    current_password: confirmPassword
+                })
+            });
 
-        const data = await response.json();
-        
-        if (data.success) {
-            navigate('/profile');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Failed to update profile");
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                navigate('/profile');
+            }
+        } catch (error) {
+            console.error("Update failed:", error);
+            setPasswordError(error.message || "Invalid password. Please try again.");
         }
-    } catch (error) {
-        console.error("Update failed:", error);
-        setPasswordError(error.message || "Invalid password. Please try again.");
-    }
-};
+    };
 
     if (loading) {
         return (
             <div className="max-w-4xl mx-auto p-4 flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
             </div>
         );
     }
@@ -144,7 +142,7 @@ const EditProfilePage = () => {
             <div className="flex items-center justify-between mb-6">
                 <button 
                     onClick={() => navigate('/profile')}
-                    className="flex items-center text-blue-500 hover:text-blue-700"
+                    className="flex items-center text-[#00796B] hover:text-[#00695C]"
                 >
                     <FiX className="mr-1" /> Cancel
                 </button>
@@ -152,7 +150,7 @@ const EditProfilePage = () => {
                 <button
                     type="submit"
                     form="profileForm"
-                    className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
                 >
                     <FiSave className="mr-2" /> Save
                 </button>
@@ -161,23 +159,23 @@ const EditProfilePage = () => {
             {/* Profile Card */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
                 <form id="profileForm" onSubmit={handleSubmit} className="p-6 space-y-8">
-                    {/* Profile Picture Section - Removed since we're not handling images */}
+                    {/* Profile Picture Section */}
                     <div className="flex flex-col items-center">
-                        <div className="w-32 h-32 rounded-full border-4 border-blue-100 bg-gray-200 flex items-center justify-center">
+                        <div className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center">
                             <FiUser className="text-4xl text-gray-400" />
                         </div>
                         <h3 className="mt-3 text-xl font-semibold text-gray-800">
                             {user.first_name} {user.last_name}
                         </h3>
-                        <p className="text-blue-500 text-center capitalize">{user.role}</p>
+                        <p className="text-[#00796B] text-center capitalize">{user.role}</p>
                     </div>
 
                     {/* Two-Column Layout */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Left Column - Personal Info */}
                         <div className="space-y-6">
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold text-blue-700 flex items-center mb-4">
+                            <div className="bg-[#E0F2F1] p-4 rounded-lg">
+                                <h3 className="text-lg font-semibold text-[#00796B] flex items-center mb-4">
                                     <FiUser className="mr-2" /> Personal Information
                                 </h3>
                                 
@@ -189,7 +187,7 @@ const EditProfilePage = () => {
                                             name="first_name"
                                             value={user.first_name}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                             required
                                         />
                                     </div>
@@ -201,7 +199,7 @@ const EditProfilePage = () => {
                                             name="last_name"
                                             value={user.last_name}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                             required
                                         />
                                     </div>
@@ -213,7 +211,7 @@ const EditProfilePage = () => {
                                             name="email"
                                             value={user.email}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                             required
                                         />
                                     </div>
@@ -225,7 +223,7 @@ const EditProfilePage = () => {
                                             name="phone_number"
                                             value={user.phone_number}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                         />
                                     </div>
                                 </div>
@@ -234,8 +232,8 @@ const EditProfilePage = () => {
 
                         {/* Right Column - Additional Info */}
                         <div className="space-y-6">
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold text-blue-700 flex items-center mb-4">
+                            <div className="bg-[#E0F2F1] p-4 rounded-lg">
+                                <h3 className="text-lg font-semibold text-[#00796B] flex items-center mb-4">
                                     <FiMapPin className="mr-2" /> Location
                                 </h3>
                                 <div>
@@ -245,14 +243,14 @@ const EditProfilePage = () => {
                                         name="wilaya"
                                         value={user.wilaya}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                     />
                                 </div>
                             </div>
 
                             {/* Security Section */}
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold text-blue-700 flex items-center mb-4">
+                            <div className="bg-[#E0F2F1] p-4 rounded-lg">
+                                <h3 className="text-lg font-semibold text-[#00796B] flex items-center mb-4">
                                     <FiShield className="mr-2" /> Security
                                 </h3>
                                 <div>
@@ -264,12 +262,12 @@ const EditProfilePage = () => {
                                             value={user.password}
                                             onChange={handleChange}
                                             placeholder="Enter new password"
-                                            className="flex-1 py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="flex-1 py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#00796B]"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="px-3 text-gray-500 hover:text-blue-500"
+                                            className="px-3 text-gray-500 hover:text-[#00796B]"
                                         >
                                             {showPassword ? <FiEyeOff /> : <FiEye />}
                                         </button>
@@ -286,12 +284,12 @@ const EditProfilePage = () => {
 
             {/* Password Confirmation Modal */}
             {showConfirmation && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                                    <FiShield className="mr-2 text-blue-500" /> Confirm Changes
+                                    <FiShield className="mr-2 text-[#00796B]" /> Confirm Changes
                                 </h3>
                                 <button 
                                     onClick={() => setShowConfirmation(false)}
@@ -315,14 +313,14 @@ const EditProfilePage = () => {
                                             type={showPassword ? "text" : "password"}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
                                             placeholder="Enter your password"
                                             autoFocus
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-2.5 text-gray-500 hover:text-blue-500"
+                                            className="absolute right-3 top-2.5 text-gray-500 hover:text-[#00796B]"
                                         >
                                             {showPassword ? <FiEyeOff /> : <FiEye />}
                                         </button>
@@ -343,7 +341,7 @@ const EditProfilePage = () => {
                                     <button
                                         type="button"
                                         onClick={verifyPassword}
-                                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+                                        className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] flex items-center transition-colors"
                                     >
                                         <FiSave className="mr-2" /> Confirm Changes
                                     </button>

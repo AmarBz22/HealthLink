@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiUpload, FiSave, FiPlusCircle, FiMapPin, FiPhone, FiMail, FiTrash2 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const StoreManagementPage = () => {
+const EditStorePage = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
   
   const [storeInfo, setStoreInfo] = useState({
     name: "",
@@ -18,6 +21,44 @@ const StoreManagementPage = () => {
     specialties: [""]
   });
 
+  // Fetch store data on component mount
+  useEffect(() => {
+    const fetchStoreData = async () => {
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const response = await axios.get(`http://localhost:8000/api/stores/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        const storeData = response.data.data;
+        setStoreInfo({
+          name: storeData.name,
+          description: storeData.description,
+          phone: storeData.phone,
+          email: storeData.email,
+          address: storeData.address,
+          specialties: storeData.specialties.length > 0 ? storeData.specialties : [""]
+        });
+
+        if (storeData.logo_url) {
+          setLogoPreview(storeData.logo_url);
+        }
+
+      } catch (error) {
+        console.error("Error fetching store data:", error);
+        toast.error(error.response?.data?.message || "Failed to load store data");
+        navigate('/store');
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchStoreData();
+  }, [id, navigate]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStoreInfo(prev => ({ ...prev, [name]: value }));
@@ -27,6 +68,7 @@ const StoreManagementPage = () => {
     const file = e.target.files[0];
     if (file) {
       setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -56,6 +98,7 @@ const StoreManagementPage = () => {
   
     try {
       const formData = new FormData();
+      formData.append('_method', 'PUT'); // For Laravel to recognize as PUT request
       formData.append('name', storeInfo.name);
       formData.append('description', storeInfo.description);
       formData.append('phone', storeInfo.phone);
@@ -69,13 +112,9 @@ const StoreManagementPage = () => {
       if (logoFile) {
         formData.append('logo', logoFile);
       }
-  
+
       const authToken = localStorage.getItem('authToken');
-      if (!authToken) {
-        throw new Error('No authentication token found');
-      }
-  
-      const response = await axios.post('http://localhost:8000/api/stores', formData, {
+      const response = await axios.post(`http://localhost:8000/api/stores/${id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${authToken}`,
@@ -83,44 +122,13 @@ const StoreManagementPage = () => {
         }
       });
   
-      if (response.status === 201) {
-        toast.success("Medical store created successfully!");
-        navigate('/store');
-        return;
+      if (response.status === 200) {
+        toast.success("Medical store updated successfully!");
+        navigate(`/store/${id}`);
       }
   
     } catch (error) {
-      console.error("Error creating store:", error);
-      
-      if (error.response?.status === 401) {
-        try {
-          const refreshResponse = await axios.post('/api/auth/refresh', {}, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-          });
-          
-          const newAuthToken = refreshResponse.data.authToken;
-          localStorage.setItem('authToken', newAuthToken);
-          
-          const retryResponse = await axios.post('http://localhost:8000/api/stores', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${newAuthToken}`,
-              'Accept': 'application/json'
-            }
-          });
-          
-          toast.success("Medical store created successfully!");
-          navigate('/stores');
-          return;
-        } catch (refreshError) {
-          console.error("Token refresh failed:", refreshError);
-          toast.error("Session expired. Please login again.");
-          navigate('/login');
-          return;
-        }
-      }
+      console.error("Error updating store:", error);
       
       if (error.response?.status === 422) {
         const errors = error.response.data.errors;
@@ -141,12 +149,20 @@ const StoreManagementPage = () => {
           </div>
         );
       } else {
-        toast.error(error.response?.data?.message || "Failed to create store");
+        toast.error(error.response?.data?.message || "Failed to update store");
       }
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full min-h-screen bg-gray-50">
@@ -154,7 +170,7 @@ const StoreManagementPage = () => {
         <main className="p-6 flex-1">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">
-              Create New Medical Store
+              Edit Medical Store
             </h1>
             <button 
               onClick={handleSubmit}
@@ -166,7 +182,7 @@ const StoreManagementPage = () => {
               }`}
             >
               <FiSave className="mr-2" /> 
-              {isLoading ? "Creating..." : "Create Store"}
+              {isLoading ? "Saving..." : "Save Changes"}
             </button>
           </div>
 
@@ -245,10 +261,10 @@ const StoreManagementPage = () => {
                   <div className="flex items-center">
                     <label className="cursor-pointer">
                       <div className="border-2 border-dashed border-gray-300 rounded-md p-4 flex flex-col items-center hover:border-[#00796B] transition-colors">
-                        {logoFile ? (
+                        {logoPreview ? (
                           <div className="relative">
                             <img 
-                              src={URL.createObjectURL(logoFile)} 
+                              src={logoPreview} 
                               alt="Store logo preview" 
                               className="w-20 h-20 object-contain"
                             />
@@ -329,4 +345,4 @@ const StoreManagementPage = () => {
   );
 };
 
-export default StoreManagementPage;
+export default EditStorePage;
