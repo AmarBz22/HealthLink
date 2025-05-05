@@ -13,12 +13,12 @@ const EditStorePage = () => {
   const [logoPreview, setLogoPreview] = useState("");
   
   const [storeInfo, setStoreInfo] = useState({
-    name: "",
+    store_name: "",
     description: "",
     phone: "",
     email: "",
     address: "",
-    specialties: [""]
+    specialties: [""] // Initialize with at least one empty specialty
   });
 
   // Fetch store data on component mount
@@ -26,24 +26,30 @@ const EditStorePage = () => {
     const fetchStoreData = async () => {
       try {
         const authToken = localStorage.getItem('authToken');
-        const response = await axios.get(`http://localhost:8000/api/stores/${id}`, {
+        const response = await axios.get(`http://localhost:8000/api/store/${id}`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
           }
         });
         
-        const storeData = response.data.data;
+        const storeData = response.data?.data || response.data;
+        
+        // Safely handle specialties - default to [""] if undefined
+        const specialties = storeData?.specialties?.length > 0 
+          ? storeData.specialties 
+          : [""];
+
         setStoreInfo({
-          name: storeData.name,
-          description: storeData.description,
-          phone: storeData.phone,
-          email: storeData.email,
-          address: storeData.address,
-          specialties: storeData.specialties.length > 0 ? storeData.specialties : [""]
+          store_name: storeData?.store_name || "",
+          description: storeData?.description || "",
+          phone: storeData?.phone || "",
+          email: storeData?.email || "",
+          address: storeData?.address || "",
+          specialties: specialties
         });
 
-        if (storeData.logo_url) {
+        if (storeData?.logo_url) {
           setLogoPreview(storeData.logo_url);
         }
 
@@ -58,6 +64,7 @@ const EditStorePage = () => {
 
     fetchStoreData();
   }, [id, navigate]);
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -98,8 +105,8 @@ const EditStorePage = () => {
   
     try {
       const formData = new FormData();
-      formData.append('_method', 'PUT'); // For Laravel to recognize as PUT request
-      formData.append('name', storeInfo.name);
+      formData.append('_method', 'PUT');
+      formData.append('store_name', storeInfo.store_name);
       formData.append('description', storeInfo.description);
       formData.append('phone', storeInfo.phone);
       formData.append('email', storeInfo.email);
@@ -114,7 +121,7 @@ const EditStorePage = () => {
       }
 
       const authToken = localStorage.getItem('authToken');
-      const response = await axios.post(`http://localhost:8000/api/stores/${id}`, formData, {
+      const response = await axios.post(`http://localhost:8000/api/store/${id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${authToken}`,
@@ -197,8 +204,8 @@ const EditStorePage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Store Name*</label>
                   <input
                     type="text"
-                    name="name"
-                    value={storeInfo.name}
+                    name="store_name"
+                    value={storeInfo.store_name}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B]"
                     placeholder="MedEquip Solutions"
@@ -221,36 +228,37 @@ const EditStorePage = () => {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Medical Specialties*</label>
-                  <div className="space-y-2">
-                    {storeInfo.specialties.map((specialty, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
+                   <div className="space-y-2">
+                    {/* Safely map over specialties - will always have at least one item */}
+                    {storeInfo.specialties?.map((specialty, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
                           type="text"
                           value={specialty}
                           onChange={(e) => handleSpecialtyChange(index, e.target.value)}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B]"
                           placeholder="e.g., Cardiology, Radiology"
                           required={index === 0}
-                        />
-                        {storeInfo.specialties.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeSpecialty(index)}
-                            className="p-2 text-red-500 hover:text-red-700"
-                          >
-                            <FiTrash2 />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
+                      />
+                      {storeInfo.specialties.length > 1 && (
+                      <button
                       type="button"
-                      onClick={addSpecialty}
-                      className="flex items-center text-sm text-[#00796B] hover:text-[#00695C]"
-                    >
-                      <FiPlusCircle className="mr-1" /> Add Another Specialty
+                      onClick={() => removeSpecialty(index)}
+                      className="p-2 text-red-500 hover:text-red-700"
+                      >
+                    <FiTrash2 />
                     </button>
+                    )}
                   </div>
+                  ))}
+        <button
+          type="button"
+          onClick={addSpecialty}
+          className="flex items-center text-sm text-[#00796B] hover:text-[#00695C]"
+        >
+          <FiPlusCircle className="mr-1" /> Add Another Specialty
+        </button>
+      </div>
                 </div>
               </div>
 

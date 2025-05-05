@@ -1,13 +1,11 @@
-import { FiEdit, FiPlus, FiTrash2, FiShoppingCart, FiMapPin, FiPhone, FiMail, FiStar, FiShare2, FiX } from 'react-icons/fi';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { FiShoppingCart, FiMapPin, FiPhone, FiMail, FiStar, FiEdit, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import PropTypes from 'prop-types';
-
-const Spinner = ({ size = 'small' }) => (
-  <div className={`${size === 'small' ? 'h-4 w-4' : 'h-6 w-6'} animate-spin rounded-full border-2 border-current border-t-transparent`} />
-);
+import AddToCartModal from '../components/AddToCartModal';
+import ProductsSection from '../components/ProductSection';
+import InventoryConfirmationModal from '../components/InventroyConfirmationModal';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, productName }) => {
   if (!isOpen) return null;
@@ -15,7 +13,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, productName }) =>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Blur backdrop */}
-      <div className="absolute inset-0 backdrop-blur-sm bg-opacity-50 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 backdrop-blur-sm bg-opacity-50" onClick={onClose}></div>
       
       {/* Modal content */}
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6 z-10">
@@ -50,6 +48,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, productName }) =>
   );
 };
 
+
 const StoreDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,18 +57,27 @@ const StoreDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState(null);
-  const [imageErrors, setImageErrors] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  // New state for inventory modal
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [productToInventory, setProductToInventory] = useState(null);
+  const [processingInventory, setProcessingInventory] = useState(false);
   const storageUrl = 'http://localhost:8000/storage';
+  const productType = "new"; // Set product type to "new"
 
+  // Fetch store and product data
   useEffect(() => {
     const fetchStoreData = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
         if (!token) {
-          throw new Error('No authentication token found');
+          toast.error('Please login to view this page');
+          navigate('/login');
+          return;
         }
 
         const headers = {
@@ -77,107 +85,134 @@ const StoreDetailsPage = () => {
           'Accept': 'application/json'
         };
 
-        const [storeResponse, productsResponse, userResponse] = await Promise.all([
-          axios.get(`http://localhost:8000/api/stores/${id}`, { headers }),
-          axios.get(`http://localhost:8000/api/stores/${id}/products`, { headers }),
-          axios.get(`http://localhost:8000/api/user`, { headers }).catch(() => null)
+        const [userResponse, storeResponse, productsResponse] = await Promise.all([
+          axios.get('http://localhost:8000/api/user', { headers }),
+          axios.get(`http://localhost:8000/api/store/${id}`, { headers }),
+          axios.get(`http://localhost:8000/api/products/${id}`, { headers })
         ]);
 
-        const storeData = storeResponse.data.data || storeResponse.data;
+        const storeData = Array.isArray(storeResponse.data) 
+          ? storeResponse.data[0] 
+          : storeResponse.data?.data || storeResponse.data;
+
+        if (!storeData) throw new Error('Store data not found');
+
+        // Filter products by type on the client side
+        const filteredProducts = Array.isArray(productsResponse.data) 
+          ? productsResponse.data.filter(product => product.type === productType)
+          : [];
+
         setStore(storeData);
-        setProducts(productsResponse.data.products || []);
-        console.log(productsResponse);
-        
-        if (userResponse) {
-          setIsOwner(storeData.owner_id === userResponse.data.id);
-        }
+        setProducts(filteredProducts);
+        setIsOwner(userResponse.data?.id === storeData.owner_id);
+
       } catch (error) {
-        console.error('API Error:', error);
-        
+        console.error('Error loading data:', error);
         if (error.response?.status === 401) {
-          toast.error('Session expired. Please login again.');
           localStorage.removeItem('authToken');
           navigate('/login');
-        } else {
-          toast.error(error.response?.data?.message || 'Failed to load store data');
         }
+        toast.error(error.response?.data?.message || 'Failed to load store data');
       } finally {
         setLoading(false);
       }
     };
 
     fetchStoreData();
-  }, [id, navigate]);
+  }, [id, navigate, productType]);
 
   const handleDeleteClick = (product) => {
-    if (!product || !product.product_id) {
-      console.error("Invalid product or product ID is missing:", product);
-      toast.error("Cannot delete product: Invalid product ID");
+    if (!product?.product_id) {
+      console.error("Invalid product data");
       return;
     }
-    
-    // Log the product ID to verify it's correct
-    console.log("Product to delete ID:", product.product_id);
-    
     setProductToDelete(product);
     setModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!productToDelete || !productToDelete.product_id) {
-      console.error("Cannot delete: productToDelete or its ID is undefined", productToDelete);
-      toast.error("Cannot delete: Invalid product ID");
-      return;
-    }
-    
+    if (!productToDelete?.product_id) return;
+
     try {
       setDeletingProductId(productToDelete.product_id);
       const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        toast.error('Authentication token not found');
-        return;
-      }
-  
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+
+      await axios.delete(
+        `http://localhost:8000/api/product/${productToDelete.product_id}`, 
+        { headers }
+      );
+
+      setProducts(prev => prev.filter(p => p.product_id !== productToDelete.product_id));
+      toast.success('Product deleted successfully');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete product');
+    } finally {
+      setDeletingProductId(null);
+      setModalOpen(false);
+    }
+  };
+
+  // New function to handle promote click
+  const handlePromoteClick = (product) => {
+    if (!product?.product_id) {
+      console.error("Invalid product data");
+      return;
+    }
+    setProductToInventory(product);
+    setInventoryModalOpen(true);
+  };
+
+  // New function to confirm moving product to inventory
+  const handleConfirmInventory = async () => {
+    if (!productToInventory?.product_id) return;
+
+    try {
+      setProcessingInventory(true);
+      const token = localStorage.getItem('authToken');
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       };
-  
-      console.log(`Attempting to delete product with ID: ${productToDelete.product_id}`);
-      
-      // Update the URL to use product_id
-      const response = await axios.delete(
-        `http://localhost:8000/api/products/${productToDelete.product_id}`, 
+
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/products/stock-clearance',
+        { store_product_id: productToInventory.product_id },
         { headers }
       );
+
+      // Remove the product from the product list as it's moved to inventory
+      setProducts(prev => prev.filter(p => p.product_id !== productToInventory.product_id));
+      toast.success('Product moved to inventory successfully');
       
-      console.log('Delete response:', response);
-      
-      // Update the UI by removing the deleted product - also use product_id here
-      setProducts(prevProducts => prevProducts.filter(p => p.product_id !== productToDelete.product_id));
-      toast.success('Product deleted successfully');
-      
-      // Close the modal and reset states
-      setModalOpen(false);
-      setProductToDelete(null);
-      setDeletingProductId(null);
+      // Optional: Log the response
+      console.log('Inventory response:', response.data);
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete product');
-      setDeletingProductId(null);
+      console.error('Inventory error:', error);
+      toast.error(error.response?.data?.message || 'Failed to move product to inventory');
+    } finally {
+      setProcessingInventory(false);
+      setInventoryModalOpen(false);
     }
   };
 
-  const handleImageError = (id) => {
-    setImageErrors(prev => ({ ...prev, [id]: true }));
+  const handleAddToBasket = (product) => {
+    toast.success(`${product.product_name} added to basket`);
+  };
+
+  const handleOrderNow = (product) => {
+    navigate('/checkout', { state: { products: [product] }});
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Spinner size="large" />
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
       </div>
     );
   }
@@ -206,18 +241,29 @@ const StoreDetailsPage = () => {
         productName={productToDelete?.product_name || ''}
       />
 
-      {/* Store Info Card */}
+      {/* Inventory Confirmation Modal */}
+      <InventoryConfirmationModal
+        isOpen={inventoryModalOpen}
+        onClose={() => setInventoryModalOpen(false)}
+        onConfirm={handleConfirmInventory}
+        productName={productToInventory?.product_name || ''}
+      />
+
+      {/* Store Info Section */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
         <div className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Store Logo */}
             <div className="w-32 h-32 flex-shrink-0 border-4 border-white rounded-xl shadow-md overflow-hidden bg-gray-100">
-              {!imageErrors['store-logo'] && store?.logo_path ? (
+              {store?.logo_path ? (
                 <img 
                   src={`${storageUrl}/${store.logo_path}`}
                   alt={`${store.name} logo`}
                   className="w-full h-full object-cover"
-                  onError={() => handleImageError('store-logo')}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/placeholder-store.png';
+                  }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -226,13 +272,13 @@ const StoreDetailsPage = () => {
               )}
             </div>
             
-            {/* Store Info */}
+            {/* Store Details */}
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-gray-900">{store.name}</h1>
-                    {store.is_verified && (
+                    <h1 className="text-2xl font-bold text-gray-900">{store.store_name}</h1>
+                    {store?.is_verified === 1 && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#B2DFDB] text-[#00796B]">
                         <FiStar className="mr-1" /> Verified
                       </span>
@@ -241,15 +287,13 @@ const StoreDetailsPage = () => {
                   <p className="text-gray-600 mt-1">{store.description}</p>
                 </div>
                 
-                {store.is_mine && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => navigate(`/store/${store.id}/editStore`)}
-                      className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-sm"
-                    >
-                      <FiEdit className="mr-2" /> Edit Store
-                    </button>
-                  </div>
+                {isOwner && (
+                  <button 
+                    onClick={() => navigate(`/store/${store.id}/editStore`)}
+                    className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-sm"
+                  >
+                    <FiEdit className="mr-2" /> Edit Store
+                  </button>
                 )}
               </div>
               
@@ -302,134 +346,39 @@ const StoreDetailsPage = () => {
       </div>
 
       {/* Products Section */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Products</h2>
-            
-            <div className="flex gap-3">
-              <button 
-                className="p-2 text-gray-500 hover:text-[#00796B] rounded-full hover:bg-gray-100 transition-colors"
-                onClick={() => toast.info('Share functionality coming soon!')}
-              >
-                <FiShare2 />
-              </button>
-              
-              {store.is_mine && (
-                <button 
-                  onClick={() => navigate(`/store/${store.id}/addProduct`)}
-                  className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-sm"
-                >
-                  <FiPlus className="mr-2" /> Add Product
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            {products.map(product => (
-              <div key={product.product_id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                {/* Product Image */}
-                <div className="h-56 bg-gray-100 flex items-center justify-center">
-                  {!imageErrors[`product-${product.id}`] && product.image_path ? (
-                    <img 
-                      src={`${storageUrl}/${product.image_path}`}
-                      alt={product.product_name}
-                      className="h-full w-full object-cover"
-                      onError={() => handleImageError(`product-${product.id}`)}
-                    />
-                  ) : (
-                    <FiShoppingCart className="text-gray-400 text-4xl" />
-                  )}
-                </div>
-                
-                {/* Product Info */}
-                <div className="p-5">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {product.product_name}
-                    </h3>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {product.stock} in stock
-                    </span>
-                  </div>
-                  
-                  <p className="mt-2 text-gray-600 line-clamp-2">
-                    {product.description}
-                  </p>
-                  
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-2xl font-bold text-[#00796B]">
-                      ${!isNaN(Number(product.price)) ? Number(product.price).toFixed(2) : '0.00'}
-                    </span>
-
-                    <div className="flex gap-2">
-                      <button 
-                        className="p-2 bg-[#E0F2F1] text-[#00796B] rounded-lg hover:bg-[#B2DFDB] transition-colors"
-                        onClick={() => toast.info('Add to cart functionality coming soon!')}
-                      >
-                        <FiShoppingCart />
-                      </button>
-                      
-                      {store.is_mine && (
-  <>
-    <button 
-      onClick={() => navigate(`/store/${store.id}/products/${product.product_id}/edit`)}
-      className="p-2 bg-[#FFF8E1] text-[#FFA000] rounded-lg hover:bg-[#FFECB3] transition-colors"
-    >
-      <FiEdit />
-    </button>
-    <button 
-      onClick={() => handleDeleteClick(product)}
-      disabled={deletingProductId === product.product_id}
-      className={`p-2 bg-[#FFEBEE] text-[#F44336] rounded-lg hover:bg-[#FFCDD2] transition-colors ${
-        deletingProductId === product.product_id ? 'opacity-50 cursor-not-allowed' : ''
-      }`}
-    >
-      {deletingProductId === product.product_id ? (
-        <Spinner size="small" />
-      ) : (
-        <FiTrash2 />
-      )}
-    </button>
-  </>
-)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
-              <FiShoppingCart className="w-full h-full" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">No products</h3>
-            <p className="mt-1 text-gray-500">
-              {store.is_mine ? "Get started by adding your first product" : "This store hasn't added any products yet"}
-            </p>
-            {store.is_mine && (
-              <div className="mt-6">
-                <button 
-                  onClick={() => navigate(`/store/${store.id}/addProduct`)}
-                  className="inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-sm"
-                >
-                  <FiPlus className="mr-2" /> Add Product
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">New Products</h2>
+        <div className="h-1 w-20 bg-[#00796B] rounded"></div>
       </div>
+
+      {/* Products Section */}
+      <ProductsSection
+        products={products}
+        isOwner={isOwner}
+        storeId={id}
+        deletingProductId={deletingProductId}
+        processingInventory={processingInventory}
+        storageUrl={storageUrl}
+        onAddProduct={() => navigate(`/store/${id}/addProduct`)}
+        onDeleteProduct={handleDeleteClick}
+        onEditProduct={(product) => navigate(`/store/${id}/products/${product.product_id}/edit`)}
+        onPromoteProduct={handlePromoteClick}
+        onAddToCart={(product) => {
+          setSelectedProduct(product);
+          setCartModalOpen(true);
+        }}
+      />
+
+      {/* Add to Cart Modal */}
+      <AddToCartModal
+        isOpen={cartModalOpen}
+        onClose={() => setCartModalOpen(false)}
+        product={selectedProduct}
+        onAddToBasket={handleAddToBasket}
+        onOrderNow={handleOrderNow}
+      />
     </div>
   );
-};
-
-StoreDetailsPage.propTypes = {
-  // Add prop types if needed
 };
 
 export default StoreDetailsPage;

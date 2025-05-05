@@ -11,8 +11,13 @@ const EditProductPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
 
+  // Add states for original data and modified fields tracking
+  const [originalProductData, setOriginalProductData] = useState(null);
+  const [modifiedFields, setModifiedFields] = useState({});
+
   const [productData, setProductData] = useState({
     store_id: storeId,
+    product_id: productId,
     product_name: "",
     description: "",
     price: "",
@@ -49,13 +54,15 @@ const EditProductPage = () => {
 
         // Fetch product data and user data in parallel
         const [productResponse, userResponse] = await Promise.all([
-          axios.get(`http://localhost:8000/api/products/${productId}`, { headers }),
+          axios.get(`http://localhost:8000/api/product/${productId}`, { headers }),
           axios.get('http://localhost:8000/api/user', { headers }).catch(() => null)
         ]);
 
-        const product = productResponse.data;
-        const storeResponse = await axios.get(`http://localhost:8000/api/stores/${storeId}`, { headers });
-        
+        const product = productResponse.data // Access first item in array
+        const storeResponse = await axios.get(`http://localhost:8000/api/store/${storeId}`, { headers });
+        console.log(productResponse)
+        console.log(storeResponse)
+        console.log(userResponse)
         // Check if current user is the owner
         if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
           setIsOwner(true);
@@ -65,18 +72,23 @@ const EditProductPage = () => {
           return;
         }
 
-        setProductData({
+        // Map API response to form fields
+        const initialProductData = {
           store_id: storeId,
+          product_id: productId,
           product_name: product.product_name,
           description: product.description,
-          price: product.price,
+          price: product.price, // Map  to price
           stock: product.stock,
           category: product.category,
-          image_url: product.image_url
-        });
+          image_url: product.image
+        };
 
-        if (product.image_url) {
-          setPreviewImage(`http://localhost:8000/storage/${product.image_url}`);
+        setProductData(initialProductData);
+        setOriginalProductData(initialProductData); // Store original data
+
+        if (product.image) {
+          setPreviewImage(product.image);
         }
 
         setIsLoading(false);
@@ -90,60 +102,94 @@ const EditProductPage = () => {
     fetchProductAndVerifyOwner();
   }, [productId, storeId, navigate]);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    setProductData(prev => ({ ...prev, [name]: value }));
+    
+    // Track modified fields by comparing with original data
+    setModifiedFields(prev => ({
+      ...prev,
+      [name]: value !== originalProductData[name] ? value : undefined
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isOwner) return;
     
     setIsSubmitting(true);
-
+  
     try {
       const token = localStorage.getItem("authToken");
       if (!token) {
         throw new Error("Authentication required");
       }
-
+  
       const formData = new FormData();
-      formData.append("_method", "PUT"); // For Laravel to recognize PUT request
-      formData.append("product_name", productData.product_name);
-      formData.append("description", productData.description);
-      formData.append("price", productData.price);
-      formData.append("stock", productData.stock);
-      formData.append("category", productData.category);
       
+      // Always include ALL required fields
+      formData.append("product_name", productData.product_name || "");
+      formData.append("category", productData.category || "Medical Devices");
+      formData.append("price", productData.price || "0");
+      formData.append("stock", productData.stock || "0");
+      
+      // Include optional fields
+      if (productData.description) {
+        formData.append("description", productData.description);
+      }
+      
+      // Handle image
       if (selectedFile) {
         formData.append("image", selectedFile);
+      } else if (modifiedFields.image_url === null) {
+        formData.append("remove_image", "1");
       }
-
+  
+      // Debug: Log what we're sending
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+  
       const response = await axios.post(
-        `http://localhost:8000/api/products/${productId}`,
+        `http://localhost:8000/api/product/${productId}`,
         formData,
         {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "multipart/form-data"
+          },
+          params: {
+            _method: "PUT" // Laravel's way to handle PUT requests via POST
           }
         }
       );
-
+  
       toast.success("Product updated successfully");
       navigate(`/store/${storeId}`);
     } catch (error) {
       console.error("Error updating product:", error);
-      toast.error(error.response?.data?.message || "Failed to update product");
+      
+      // Display validation errors to user
+      if (error.response?.status === 422) {
+        const errorMessages = Object.values(error.response.data.errors)
+          .flat()
+          .join('\n');
+        toast.error(errorMessages);
+      } else {
+        toast.error(error.response?.data?.message || "Failed to update product");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setProductData(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.size <= 2 * 1024 * 1024) { // 2MB limit
+    if (file && file.size <= 2 * 1024 * 1024) {
       setSelectedFile(file);
+      setModifiedFields(prev => ({ ...prev, image_url: null })); // Mark image as changed
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result);
@@ -156,10 +202,16 @@ const EditProductPage = () => {
 
   const removeImage = () => {
     setSelectedFile(null);
-    setPreviewImage(productData.image_url ? `http://localhost:8000/storage/${productData.image_url}` : null);
+    setModifiedFields(prev => ({ ...prev, image_url: null })); // Mark image as removed
+    setPreviewImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  // Helper function to check if field is modified
+  const isFieldModified = (fieldName) => {
+    return modifiedFields[fieldName] !== undefined;
   };
 
   if (isLoading) {
@@ -213,7 +265,11 @@ const EditProductPage = () => {
                   name="product_name"
                   value={productData.product_name}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                    isFieldModified('product_name') 
+                      ? 'border-[#00796B] bg-[#E8F5E9]' 
+                      : 'border-gray-300'
+                  }`}
                   required
                   minLength="3"
                   maxLength="255"
@@ -226,7 +282,11 @@ const EditProductPage = () => {
                   name="category"
                   value={productData.category}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                    isFieldModified('category') 
+                      ? 'border-[#00796B] bg-[#E8F5E9]' 
+                      : 'border-gray-300'
+                  }`}
                   required
                 >
                   {categories.map(category => (
@@ -242,7 +302,11 @@ const EditProductPage = () => {
                   value={productData.description}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                    isFieldModified('description') 
+                      ? 'border-[#00796B] bg-[#E8F5E9]' 
+                      : 'border-gray-300'
+                  }`}
                   maxLength="500"
                 />
               </div>
@@ -263,7 +327,11 @@ const EditProductPage = () => {
                     step="0.01"
                     value={productData.price}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md pl-7 pr-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                    className={`w-full border rounded-md pl-7 pr-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                      isFieldModified('price') 
+                        ? 'border-[#00796B] bg-[#E8F5E9]' 
+                        : 'border-gray-300'
+                    }`}
                     required
                   />
                 </div>
@@ -277,7 +345,11 @@ const EditProductPage = () => {
                   min="0"
                   value={productData.stock}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                    isFieldModified('stock') 
+                      ? 'border-[#00796B] bg-[#E8F5E9]' 
+                      : 'border-gray-300'
+                  }`}
                   required
                 />
               </div>
@@ -304,7 +376,11 @@ const EditProductPage = () => {
                 ) : (
                   <label className="block">
                     <div 
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors"
+                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors ${
+                        isFieldModified('image_url') 
+                          ? 'border-[#00796B] bg-[#E8F5E9]' 
+                          : 'border-gray-300'
+                      }`}
                     >
                       <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
                       <p className="mt-1 text-sm text-gray-600">
@@ -331,7 +407,7 @@ const EditProductPage = () => {
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || Object.keys(modifiedFields).length === 0}
               className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (

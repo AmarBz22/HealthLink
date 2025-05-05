@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiSave, FiX, FiUpload, FiEye, FiEyeOff, FiUser, FiMail, FiPhone, FiMapPin, FiShield, FiKey } from "react-icons/fi";
+import axios from "axios";
 
 const EditProfilePage = () => {
     const navigate = useNavigate();
@@ -28,43 +29,40 @@ const EditProfilePage = () => {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            try {
-                const authToken = getAuthToken();
-                if (!authToken) {
-                    throw new Error('No authentication token found');
-                }
-
-                const response = await fetch('http://localhost:8000/api/user', {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    setUser({
-                        ...data.user,
-                        password: ""
-                    });
-                }
-            } catch (error) {
-                console.error("Error fetching user data:", error);
-                if (error.message.includes('401')) {
-                    navigate('/login');
-                }
-            } finally {
-                setLoading(false);
+          try {
+            const authToken = localStorage.getItem('authToken');
+            const response = await axios.get('http://localhost:8000/api/user', {
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+                Accept: 'application/json',
+              },
+            });
+      
+            console.log("Axios response:", response);
+      
+            if (response.data) {
+              // Assuming response.data contains the 'user' object
+              setUser({
+                id: response.data.id,
+                first_name: response.data.first_name,
+                last_name: response.data.last_name,
+                email: response.data.email,
+                phone_number: response.data.phone_number,
+                wilaya: response.data.wilaya,
+                role: response.data.role,
+                profilePic: response.data.profilePic || null,
+                password: "********", // Don't expose actual password
+              });
             }
+          } catch (error) {
+            console.error("Error fetching user data with Axios:", error);
+          } finally {
+            setLoading(false);
+          }
         };
-
+      
         fetchUserData();
-    }, [navigate]);
+      }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -87,44 +85,52 @@ const EditProfilePage = () => {
             setPasswordError("Please enter your password");
             return;
         }
-
+    
         try {
             const authToken = getAuthToken();
             if (!authToken) {
                 throw new Error('No authentication token found');
             }
-
-            const response = await fetch('http://localhost:8000/api/user', {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    first_name: user.first_name,
-                    last_name: user.last_name,
-                    email: user.email,
-                    phone_number: user.phone_number,
-                    wilaya: user.wilaya,
-                    password: user.password || undefined,
-                    current_password: confirmPassword
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Failed to update profile");
+    
+            // Prepare the update data
+            const updateData = {
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                phone_number: user.phone_number,
+                wilaya: user.wilaya,
+                current_password: confirmPassword
+            };
+    
+            // Only include password if it's being changed (not the placeholder and not empty)
+            if (user.password && user.password !== "********") {
+                updateData.password = user.password;
             }
-
-            const data = await response.json();
-            
-            if (data.success) {
+    
+            const response = await axios.put('http://localhost:8000/api/user/update', 
+                updateData, 
+                {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+    
+            if (response.data.success) {
                 navigate('/profile');
             }
         } catch (error) {
             console.error("Update failed:", error);
-            setPasswordError(error.message || "Invalid password. Please try again.");
+            if (error.response?.data?.errors) {
+                // Handle validation errors from Laravel
+                const errors = error.response.data.errors;
+                const firstError = Object.values(errors)[0][0];
+                setPasswordError(firstError || "Validation error");
+            } else {
+                setPasswordError(error.response?.data?.message || "Invalid password. Please try again.");
+            }
         }
     };
 

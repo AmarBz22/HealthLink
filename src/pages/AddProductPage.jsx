@@ -12,11 +12,11 @@ const AddProductPage = () => {
 
   const [productData, setProductData] = useState({
     store_id: id,
-    product_name: "",
-    description: "",
-    price: "",
-    stock: "",
-    category: "Medical Devices"
+    product_name: '',
+    description: '',
+    price: '',
+    stock: '',
+    category: '',
   });
 
   const [previewImage, setPreviewImage] = useState(null);
@@ -34,46 +34,58 @@ const AddProductPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     try {
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication required");
-      }
-
+      if (!token) throw new Error("Authentication required");
+  
+      // Validate required fields
+      if (!productData.product_name) throw new Error("Product Name is required");
+      if (!productData.price) throw new Error("Price is required");
+      if (!productData.stock) throw new Error("Stock is required");
+      if (!productData.category) throw new Error("Category is required");
+  
       const formData = new FormData();
       formData.append("store_id", productData.store_id);
       formData.append("product_name", productData.product_name);
-      formData.append("description", productData.description);
+      formData.append("description", productData.description || "");
       formData.append("price", productData.price);
       formData.append("stock", productData.stock);
       formData.append("category", productData.category);
+      formData.append("inventory_price", "");
       
       if (selectedFile) {
         formData.append("image", selectedFile);
       }
-
+  
+      const headers = {
+        "Authorization": `Bearer ${token}`,
+        // Let browser set Content-Type with boundary for FormData
+      };
+  
       const response = await axios.post(
-        `http://localhost:8000/api/products`,
+        `http://localhost:8000/api/product`, // Note singular endpoint
         formData,
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "multipart/form-data"
-          }
-        }
+        { headers }
       );
-
+  
       toast.success("Product created successfully");
-      navigate(`/store/${id}`);
+      navigate(`/store/${productData.store_id}`);
     } catch (error) {
       console.error("Error creating product:", error);
-      toast.error(error.response?.data?.message || "Failed to create product");
+      const errorMessage = error.response?.data?.message || 
+                         error.message || 
+                         "Failed to create product";
+      toast.error(errorMessage);
+      
+      // Specific error for store_id validation
+      if (error.response?.data?.errors?.store_id) {
+        toast.error("Invalid store selection");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProductData(prev => ({ ...prev, [name]: value }));
@@ -82,6 +94,12 @@ const AddProductPage = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (2MB max)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Image size must be less than 2MB");
+        return;
+      }
+      
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -105,7 +123,7 @@ const AddProductPage = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-800">Add New Product</h1>
           <Link 
-            to={`/store`} 
+            to={`/store/${id}`} // Changed from /store to /store/${id}
             className="flex items-center text-gray-600 hover:text-[#00796B] transition-colors"
           >
             <FiX className="mr-1" /> Cancel
@@ -139,6 +157,7 @@ const AddProductPage = () => {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
                 >
+                  <option value="">Select a category</option>
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
@@ -162,11 +181,11 @@ const AddProductPage = () => {
               <h2 className="text-lg font-medium text-[#00796B] border-b pb-2">Pricing & Inventory</h2>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (USD)*</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (DZ)*</label>
                 <input
                   type="number"
                   name="price"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   value={productData.price}
                   onChange={handleChange}
@@ -180,7 +199,7 @@ const AddProductPage = () => {
                 <input
                   type="number"
                   name="stock"
-                  min="0"
+                  min="1"
                   value={productData.stock}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"

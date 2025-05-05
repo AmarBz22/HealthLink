@@ -17,6 +17,9 @@ import UsersManagementPage from "./pages/UserManagementPage";
 import EditStorePage from "./pages/EditStore";
 import RegistrationConfirmation from "./pages/RegistrationConfiramtion";
 import RegistrationRequestsPage from "./pages/RegistrationRequests";
+import ProductPromotionPage from "./pages/ProductPromotion";
+import OrderInformationPage from "./pages/OrderInformation";
+import InventoryProductsPage from "./pages/InventoryProducts";
 
 // ✅ AuthCheck for protected routes
 function AuthCheck({ children }) {
@@ -57,49 +60,57 @@ function AuthCheck({ children }) {
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* ✅ Public Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
+    <Routes>
+      {/* ✅ Public Routes */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
 
-        {/* ✅ Protected Routes */}
-        <Route
-          path="/"
-          element={
-            <AuthCheck>
-              <Layout />
-            </AuthCheck>
-          }
-        >
-          <Route index element={<DashboardPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+      {/* ✅ Protected Routes */}
+      <Route
+        path="/"
+        element={
+          <AuthCheck>
+            <Layout />
+          </AuthCheck>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
 
-          <Route path="profile">
-            <Route index element={<ProfilePage />} />
-            <Route path="edit" element={<EditProfilePage />} />
-          </Route>
-
-          <Route path="store">
-            <Route index element={<StoreListingPage />} />
-            <Route path="add" element={<StoreManagementPage />} />
-            <Route path=":id" element={<StoreDetailsPage />} />
-            <Route path=":id/editStore" element={<EditStorePage />} />
-            <Route path="items" element={<StoreItemsPage />} />
-            <Route path=":id/addProduct" element={<AddProductPage />} />
-            <Route path=":storeId/products/:productId/edit" element={<EditProductPage />} />
-            </Route>
-
-          <Route path="users" >
-            <Route index element={<UsersManagementPage />} />
-            <Route path="registration-requests" element={<RegistrationRequestsPage />} />
-          </Route>
+        <Route path="profile">
+          <Route index element={<ProfilePage />} />
+          <Route path="edit" element={<EditProfilePage />} />
         </Route>
 
-        {/* ❌ Catch-all route: redirect to login */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </Router>
+        <Route path="store">
+          <Route index element={<StoreListingPage />} />
+          <Route path="add" element={<StoreManagementPage />} />
+          <Route path=":id" element={<StoreDetailsPage />} />
+          <Route path=":id/editStore" element={<EditStorePage />} />
+          <Route path="items" element={<StoreItemsPage />} />
+          <Route path=":id/addProduct" element={<AddProductPage />} />
+          <Route path=":storeId/products/:productId/edit" element={<EditProductPage />} />
+          <Route path=":storeId/products/:productId/promote" element={<ProductPromotionPage />} />
+        </Route>
+        <Route path="inventory-products" element={< InventoryProductsPage/>} />
+
+        <Route path="users">
+          <Route index element={<UsersManagementPage />} />
+          <Route path="registration-requests" element={<RegistrationRequestsPage />} />
+        </Route>
+
+        {/* Add these new routes */}
+        <Route path="order">
+          <Route path="information" element={<OrderInformationPage />} />
+        </Route>
+
+      </Route>
+
+      {/* ❌ Catch-all route: redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  </Router>
   );
 }
 

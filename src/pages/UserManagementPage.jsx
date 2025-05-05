@@ -31,14 +31,15 @@ const UsersManagementPage = () => {
             'Accept': 'application/json'
           }
         });
+        console.log(userResponse)
 
-        if (userResponse.data.user.role !== 'Admin') {
+        if (userResponse.data.role !== 'Admin') {
           toast.error('Unauthorized access');
           return;
         }
 
         setIsAdmin(true);
-        setCurrentAdminId(userResponse.data.user.id);
+        setCurrentAdminId(userResponse.data.id);
         
         // Then fetch users if admin
         const usersResponse = await axios.get('http://localhost:8000/api/admin/users', {
@@ -47,11 +48,11 @@ const UsersManagementPage = () => {
             'Accept': 'application/json'
           }
         });
-        
+        console.log(userResponse)
         setUsers(usersResponse.data.users || []);
       } catch (error) {
+        console.log(error)
         toast.error(error.response?.data?.message || 'Failed to load users');
-        navigate('/');
       } finally {
         setLoading(false);
       }
@@ -88,7 +89,7 @@ const UsersManagementPage = () => {
       const token = localStorage.getItem('authToken');
       
       if (currentAction === 'ban') {
-        await axios.post(`http://localhost:8000/api/admin/user/${selectedUser.id}/ban`, {}, {
+        await axios.post(`http://localhost:8000/api/users/${selectedUser.id}/ban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -99,7 +100,7 @@ const UsersManagementPage = () => {
         ));
         toast.success('User banned successfully');
       } else {
-        await axios.post(`http://localhost:8000/api/admin/user/${selectedUser.id}/unban`, {}, {
+        await axios.post(`http://localhost:8000/api/users/${selectedUser.id}/unban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

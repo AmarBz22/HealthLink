@@ -1,34 +1,45 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, Bell, MessageCircle } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { FiUser } from "react-icons/fi";
+import { FiUser, FiShoppingCart } from "react-icons/fi";
+import { useBasket } from "../context/BasketContext";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const { toggleBasket, totalItems } = useBasket();
   
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch('http://localhost:8000/api/user', {
+  
+        const response = await axios.get('http://localhost:8000/api/user', {
           headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Accept': 'application/json'
-          }
+            Authorization: `Bearer ${authToken}`,
+            Accept: 'application/json',
+          },
         });
-        const data = await response.json();
-        if (data.success) setUser(data.user);
+  
+  
+        // ✅ Update here: directly set response.data
+        if (response.data) {
+          setUser(response.data); // Set the whole user object
+        } else {
+          console.error('No user data found in the response.');
+        }
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        console.error('Error fetching user data:', error);
       }
     };
-    
+  
     fetchUserData();
   }, []);
+  
+  
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -91,12 +102,7 @@ const Navbar = () => {
 
       {/* Right: Icons + Profile */}
       <div className="flex items-center gap-6">
-        {/* Message Icon */}
-        <div className="relative">
-          <MessageCircle className="w-5 h-5 text-gray-600 cursor-pointer hover:text-[#00796B]" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
-        </div>
-
+        
         {/* Notification Icon */}
         <div className="relative">
           <Bell className="w-5 h-5 text-gray-600 cursor-pointer hover:text-[#00796B]" />
@@ -104,7 +110,7 @@ const Navbar = () => {
         </div>
 
         {/* Profile Picture with Clickable Dropdown */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4" ref={menuRef}>
           <div className="relative">
             <Link to="/profile">
               <div className="w-10 h-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -122,29 +128,29 @@ const Navbar = () => {
           </div>
           
           {user && (
-            <span className="text-gray-700 font-medium">
+            <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 font-medium">
               {user.first_name} {user.last_name}
-            </span>
+            </button>
+          )}
+
+          {/* Dropdown Menu */}
+          {isOpen && (
+            <div className="absolute right-0 mt-2 w-40 bg-white shadow-md rounded-lg py-2 z-50 border border-gray-200">
+              <button 
+                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
+                onClick={goToProfile}
+              >
+                Profile
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Dropdown Menu */}
-        {isOpen && (
-          <div className="absolute right-0 mt-2 w-40 bg-white shadow-md rounded-lg py-2 z-50 border border-gray-200">
-            <button 
-              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
-              onClick={goToProfile}
-            >
-              Profile
-            </button>
-            <button
-              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

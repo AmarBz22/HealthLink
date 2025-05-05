@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiUpload, FiSave, FiEye, FiEyeOff, FiUser, FiMail, FiPhone, FiMapPin, FiBriefcase, FiEdit, FiCamera } from "react-icons/fi";
-
+import axios from "axios";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -21,34 +21,39 @@ const ProfilePage = () => {
     const fetchUserData = async () => {
       try {
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch('http://localhost:8000/api/user', {
+        const response = await axios.get('http://localhost:8000/api/user', {
           headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Accept': 'application/json'
-          }
+            Authorization: `Bearer ${authToken}`,
+            Accept: 'application/json',
+          },
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user data');
-        }
-
-        const data = await response.json();
-        if (data.success) {
-          setUser(prev => ({
-            ...prev,
-            ...data.user,
-            password: "********"
-          }));
+  
+        console.log("Axios response:", response);
+  
+        if (response.data) {
+          // Assuming response.data contains the 'user' object
+          setUser({
+            id: response.data.id,
+            first_name: response.data.first_name,
+            last_name: response.data.last_name,
+            email: response.data.email,
+            phone_number: response.data.phone_number,
+            wilaya: response.data.wilaya,
+            role: response.data.role,
+            profilePic: response.data.profilePic || null,
+            password: "********", // Don't expose actual password
+          });
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        console.error("Error fetching user data with Axios:", error);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchUserData();
   }, []);
+  
 
   const handleEditClick = () => {
     navigate('/profile/edit');

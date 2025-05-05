@@ -3,9 +3,60 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { getUserIdFromToken } from '../utils/auth';
 
 const Spinner = ({ size = 'small', className = '' }) => (
   <div className={`${size === 'small' ? 'h-4 w-4' : 'h-6 w-6'} animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} />
+);
+
+const SkeletonCard = () => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-transparent animate-pulse">
+    {/* Header */}
+    <div className="p-4 border-b border-gray-200">
+      <div className="flex items-center">
+        <div className="w-12 h-12 bg-gray-200 rounded-full mr-3"></div>
+        <div className="flex-1">
+          <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Body */}
+    <div className="p-4">
+      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-5/6 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-4/6 mb-4"></div>
+
+      <div className="mb-4">
+        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+        <div className="flex flex-wrap gap-1">
+          <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+          <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-gray-200 rounded-full mr-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-gray-200 rounded-full mr-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+        <div className="flex items-start">
+          <div className="w-4 h-4 bg-gray-200 rounded-full mr-2 mt-1"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end items-center">
+      <div className="h-8 bg-gray-200 rounded w-24"></div>
+    </div>
+  </div>
 );
 
 const StoreListingPage = () => {
@@ -16,9 +67,8 @@ const StoreListingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [deletingStoreId, setDeletingStoreId] = useState(null);
-
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterSpecialty, setFilterSpecialty] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     if (location.state?.success) {
@@ -35,15 +85,51 @@ const StoreListingPage = () => {
 
   const fetchStores = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("authToken");
-      const response = await axios.get("http://localhost:8000/api/stores", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setStores(response.data.data || []);
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+  
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+  
+      // First get current user data
+      const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
+      const currentUser = userResponse.data;
+      const userId = currentUser.id;
+      setCurrentUserId(userId);
+  
+      // Then fetch stores
+      const response = await axios.get("http://localhost:8000/api/stores", { headers });
+      // Transform the backend data to match frontend expectations
+      const storesData = (response.data || []).map(store => ({
+        id: store.id,
+        owner_id: store.owner_id,
+        name: store.store_name,  // Backend uses store_name, frontend expects name
+        description: store.description,
+        phone: store.phone,
+        email: store.email,
+        address: store.address,
+        logo_path: store.logo,
+        is_verified: store.is_verified,
+        specialties: store.specialties || [],
+        isOwner: store.owner_id === userId
+      }));
+  
+      setStores(storesData);
+  
     } catch (err) {
       console.error("Failed to fetch stores", err);
       setError("Failed to load store data. Please try again later.");
+      if (err.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate('/login');
+      }
     } finally {
       setLoading(false);
     }
@@ -57,7 +143,7 @@ const StoreListingPage = () => {
     setDeletingStoreId(storeId);
     try {
       const token = localStorage.getItem("authToken");
-      await axios.delete(`http://localhost:8000/api/stores/${storeId}`, {
+      await axios.delete(`http://localhost:8000/api/store/${storeId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -71,32 +157,20 @@ const StoreListingPage = () => {
     }
   };
 
-  const allSpecialties = Array.from(
-    new Set(
-      stores.flatMap(store =>
-        Array.isArray(store.specialties) ? store.specialties : []
-      )
-    )
-  );
-
   const filteredStores = stores.filter(store => {
-    const matchesSearch =
-      store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      store.description?.toLowerCase().includes(searchTerm.toLowerCase());
-  
-    const matchesSpecialty = filterSpecialty
-      ? store.specialties?.includes(filterSpecialty)
-      : true;
-  
-    return matchesSearch && matchesSpecialty;
+    return store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           store.description?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  // Create skeleton array for loading state
+  const skeletonArray = Array(6).fill(0);
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Success Message */}
         {showSuccess && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start">
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start shadow-sm animate-fadeIn">
             <FiCheckCircle className="text-green-500 mt-1 mr-3 flex-shrink-0" />
             <div>
               <h3 className="text-green-800 font-medium">Success!</h3>
@@ -107,91 +181,107 @@ const StoreListingPage = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Medical Stores Directory</h1>
-            <p className="text-gray-600 mt-2">
-              Browse {stores.length} medical equipment suppliers
-              {stores.filter(s => s.is_mine).length > 0 && 
-                ` (including your ${stores.filter(s => s.is_mine).length} store${stores.filter(s => s.is_mine).length > 1 ? 's' : ''})`}
-            </p>
-          </div>
-
-          {/* Search */}
-          <div className="relative mt-4 md:mt-0 w-full md:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiSearch className="text-gray-400" />
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start shadow-sm">
+            <div className="text-red-500 mt-1 mr-3 flex-shrink-0">⚠️</div>
+            <div>
+              <h3 className="text-red-800 font-medium">Error</h3>
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
-            <input
-              type="text"
-              placeholder="Search stores..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B]"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </div>
+        )}
+
+        {/* Header with gradient background */}
+        <div className="bg-gradient-to-r from-[#004D40] to-[#00796B] text-white rounded-lg shadow-md p-6 mb-6">
+          <h1 className="text-3xl font-bold">Medical Stores Directory</h1>
+          <p className="mt-2 opacity-90">
+            {!loading && (
+              <>
+                Browse {stores.length} medical equipment suppliers
+                {stores.filter(s => s.isOwner).length > 0 && 
+                  ` (including your ${stores.filter(s => s.isOwner).length} store${stores.filter(s => s.isOwner).length > 1 ? 's' : ''})`}
+              </>
+            )}
+          </p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
-            <select
-              className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-[#00796B] focus:border-[#00796B] sm:text-sm rounded-md"
-              value={filterSpecialty}
-              onChange={(e) => setFilterSpecialty(e.target.value)}
-            >
-              <option value="">All Specialties</option>
-              {allSpecialties.map(specialty => (
-                <option key={specialty} value={specialty}>{specialty}</option>
-              ))}
-            </select>
-          </div>
+        {/* Search and Filter Bar */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="relative w-full md:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search stores..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setFilterSpecialty("");
-            }}
-            className="self-end px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-          >
-            Clear Filters
-          </button>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+              >
+                Clear Search
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Result Count */}
-        <div className="mb-4 text-gray-600">
-          Showing {filteredStores.length} of {stores.length} stores
-        </div>
+        {!loading && (
+          <div className="mb-4 text-gray-600 font-medium">
+            Showing {filteredStores.length} of {stores.length} stores
+          </div>
+        )}
 
-        {/* Store Cards */}
-        {filteredStores.length > 0 ? (
+        {/* Loading State */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {skeletonArray.map((_, index) => (
+              <SkeletonCard key={index} />
+            ))}
+          </div>
+        ) : filteredStores.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStores.map(store => (
               <div
                 key={store.id}
-                className={`bg-white rounded-lg shadow-md overflow-hidden border-l-4 ${store.is_mine ? 'border-[#00796B]' : 'border-transparent'} hover:shadow-lg transition-shadow relative`}
+                className={`bg-white rounded-lg shadow-md overflow-hidden border-l-4 ${
+                  store.isOwner ? 'border-[#00796B]' : 'border-transparent'
+                } hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative`}
               >
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center">
-                    {store.logo_path && (
+                    {store.logo_path ? (
                       <img 
                         src={`http://localhost:8000/storage/${store.logo_path}`} 
                         alt={`${store.name} logo`} 
                         className="w-12 h-12 object-cover rounded-full mr-3 border border-gray-200"
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(store.name)}&background=00796B&color=fff`;
+                        }}
                       />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full mr-3 bg-[#00796B] text-white flex items-center justify-center font-bold">
+                        {store.name?.charAt(0).toUpperCase() || "M"}
+                      </div>
                     )}
                     <div>
                       <h3 className="font-semibold text-lg text-gray-800">{store.name}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        {store.is_mine && (
+                        {store.isOwner && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#00796B] text-white">
                             <FiStar className="mr-1" /> Your Store
                           </span>
                         )}
-                        {store.is_verified && (
+                        {store.is_verified === 1 && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#B2DFDB] text-[#00796B]">
                             Verified
                           </span>
@@ -205,16 +295,19 @@ const StoreListingPage = () => {
                 <div className="p-4">
                   <p className="text-gray-600 mb-4 line-clamp-3">{store.description}</p>
 
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-1">Specialties</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {store.specialties?.map(specialty => (
-                        <span key={specialty} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#E0F2F1] text-[#00796B]">
-                          {specialty}
-                        </span>
-                      ))}
+                  {/* Specialties */}
+                  {Array.isArray(store.specialties) && store.specialties.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-1">Specialties</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {store.specialties.map(specialty => (
+                          <span key={specialty} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#E0F2F1] text-[#00796B]">
+                            {specialty}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="space-y-2">
                     <div className="flex items-center text-gray-600">
@@ -223,7 +316,7 @@ const StoreListingPage = () => {
                     </div>
                     <div className="flex items-center text-gray-600">
                       <FiMail className="mr-2 text-[#00796B]" />
-                      <span>{store.email || 'Not provided'}</span>
+                      <span className="truncate">{store.email || 'Not provided'}</span>
                     </div>
                     <div className="flex items-start text-gray-600">
                       <FiMapPin className="mr-2 mt-1 text-[#00796B]" />
@@ -234,11 +327,11 @@ const StoreListingPage = () => {
 
                 {/* Footer */}
                 <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                  {store.is_mine && (
+                  {store.isOwner && (
                     <button 
                       onClick={() => handleDeleteStore(store.id)}
                       disabled={deletingStoreId === store.id}
-                      className={`px-3 py-1 bg-red-50 border border-red-200 rounded-md text-sm font-medium text-red-700 hover:bg-red-100 flex items-center ${
+                      className={`px-3 py-1.5 bg-red-50 border border-red-200 rounded-md text-sm font-medium text-red-700 hover:bg-red-100 flex items-center ${
                         deletingStoreId === store.id ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     >
@@ -257,7 +350,7 @@ const StoreListingPage = () => {
                   )}
                   <button 
                     onClick={() => navigate(`/store/${store.id}`)}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="px-3 py-1.5 bg-[#E0F2F1] text-[#00796B] border border-[#B2DFDB] rounded-md text-sm font-medium hover:bg-[#B2DFDB] transition-colors"
                   >
                     View Details
                   </button>
@@ -266,9 +359,17 @@ const StoreListingPage = () => {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">No stores found</h3>
-            <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+            <p className="text-gray-500">Try adjusting your search criteria</p>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="mt-4 px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#004D40] transition-colors"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
       </div>
