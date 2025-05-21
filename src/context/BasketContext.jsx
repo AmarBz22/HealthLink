@@ -1,11 +1,12 @@
-// src/contexts/BasketContext.jsx
 import { createContext, useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const BasketContext = createContext();
 
 export const BasketProvider = ({ children }) => {
   const [basket, setBasket] = useState([]);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
+  const navigate = useNavigate();
 
   const addToBasket = (product) => {
     setBasket(prev => {
@@ -44,6 +45,14 @@ export const BasketProvider = ({ children }) => {
     setIsBasketOpen(prev => !prev);
   };
 
+  const proceedToCheckout = () => {
+    if (basket.length === 0) {
+      return;
+    }
+    setIsBasketOpen(false); // Close the basket sidebar
+    navigate('/checkout'); // Navigate to checkout page
+  };
+
   const totalItems = basket.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = basket.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -58,7 +67,8 @@ export const BasketProvider = ({ children }) => {
         isBasketOpen,
         toggleBasket,
         totalItems,
-        subtotal
+        subtotal,
+        proceedToCheckout
       }}
     >
       {children}

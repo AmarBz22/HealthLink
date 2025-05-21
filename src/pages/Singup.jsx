@@ -9,7 +9,7 @@ const SignupPage = () => {
     email: '',
     phone_number: '',
     wilaya: '',
-    role: 'Healthcare Professional',
+    role: 'Dentist', // Updated default role to match backend validation
     password: '',
     password_confirmation: '',
   });
@@ -92,6 +92,10 @@ const SignupPage = () => {
               src="/logo.png" 
               alt="HealthLink Logo" 
               className="h-12 mx-auto"
+              onError={(e) => {
+                console.error("Logo failed to load");
+                e.target.style.display = 'none';
+              }}
             />
             <h1 className="text-2xl font-bold mt-4">Create Healthcare Account</h1>
           </div>
@@ -201,7 +205,7 @@ const SignupPage = () => {
               {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
             </div>
 
-            {/* Role */}
+            {/* Role - Updated to match backend validation */}
             <div>
               <label className="block text-sm font-medium mb-1">Role*</label>
               <div className="relative">
@@ -215,7 +219,10 @@ const SignupPage = () => {
                   className="w-full pl-10 p-2 border border-gray-300 rounded appearance-none"
                   required
                 >
-                  <option value="Healthcare Professional">Healthcare Professional</option>
+                  <option value="Dentist">Dentist</option>
+                  <option value="Doctor">Doctor</option>
+                  <option value="Labo">Labo</option>
+                  <option value="Pharmacist">Pharmacist</option>
                   <option value="Supplier">Supplier</option>
                 </select>
               </div>
@@ -233,7 +240,7 @@ const SignupPage = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 6 characters"
                   className={`w-full pl-10 pr-10 p-2 border rounded ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
                   required
                 />

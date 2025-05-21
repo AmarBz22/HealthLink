@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiUpload, FiSave, FiEye, FiEyeOff, FiUser, FiMail, FiPhone, FiMapPin, FiBriefcase, FiEdit, FiCamera } from "react-icons/fi";
 import axios from "axios";
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -13,7 +14,7 @@ const ProfilePage = () => {
     phone_number: "",
     wilaya: "",
     role: "",
-    profilePic: null,
+    profile_image: null,  // Changed from profilePic to profile_image to match API response
     password: "********"
   });
 
@@ -31,7 +32,7 @@ const ProfilePage = () => {
         console.log("Axios response:", response);
   
         if (response.data) {
-          // Assuming response.data contains the 'user' object
+          // Set user state with the data from API
           setUser({
             id: response.data.id,
             first_name: response.data.first_name,
@@ -40,9 +41,11 @@ const ProfilePage = () => {
             phone_number: response.data.phone_number,
             wilaya: response.data.wilaya,
             role: response.data.role,
-            profilePic: response.data.profilePic || null,
-            password: "********", // Don't expose actual password
+            profile_image: response.data.profile_image || null,  // Changed to match API response
+            password: "********",
           });
+          
+          console.log("Profile image from API:", response.data.profile_image);
         }
       } catch (error) {
         console.error("Error fetching user data with Axios:", error);
@@ -54,7 +57,6 @@ const ProfilePage = () => {
     fetchUserData();
   }, []);
   
-
   const handleEditClick = () => {
     navigate('/profile/edit');
   };
@@ -83,11 +85,24 @@ const ProfilePage = () => {
           <div className="flex flex-col md:flex-row items-start gap-6 mb-8">
             <div className="flex flex-col items-center">
               <div className="relative group">
-                {user.profilePic ? (
+                {user.profile_image ? (
                   <img
-                    src={user.profilePic}
+                    src={user.profile_image}
                     alt="Profile"
                     className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] object-cover"
+                    onError={(e) => {
+                      console.error("Image failed to load:", e.target.src);
+                      // Fallback to default user icon
+                      e.target.style.display = 'none';
+                      e.target.parentNode.innerHTML = `
+                        <div class="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center">
+                          <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" class="text-4xl text-gray-400" height="3em" width="3em" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                          </svg>
+                        </div>
+                      `;
+                    }}
                   />
                 ) : (
                   <div className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center">

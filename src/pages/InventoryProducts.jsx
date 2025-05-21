@@ -3,18 +3,30 @@ import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter } from 'rea
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import ProductCard from '../components/ProductCard';
+import AddToCartModal from '../components/AddToCartModal'; // Import the modal
+import { useBasket } from '../context/BasketContext'; // Import the basket context
 
 const InventoryProductsPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [inventoryProducts, setInventoryProducts] = useState([]);
+  const [productOwnership, setProductOwnership] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [deletingProductId, setDeletingProductId] = useState(null);
+  const storageUrl = 'http://localhost:8000/storage';
+  
+  // Add state for the modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // Get the basket context
+  const { addToBasket, toggleBasket } = useBasket();
   
   // Categories for filter dropdown
   const categories = ['Medications', 'Electronics', 'Clothing', 'Food', 'Beauty', 'Other'];
 
-  // Modified to fetch all products with type="inventory"
   useEffect(() => {
     const fetchInventoryProducts = async () => {
       try {
@@ -41,6 +53,25 @@ const InventoryProductsPage = () => {
           : [];
         
         setInventoryProducts(filteredProducts);
+        
+        // For each product, check ownership status
+        const ownershipChecks = {};
+        await Promise.all(
+          filteredProducts.map(async (product) => {
+            try {
+              const ownershipResponse = await axios.get(
+                `http://localhost:8000/api/products/${product.product_id}/check-owner`, 
+                { headers }
+              );
+              ownershipChecks[product.product_id] = ownershipResponse.data.isOwner || false;
+            } catch (error) {
+              console.error(`Error checking ownership for product ${product.product_id}:`, error);
+              ownershipChecks[product.product_id] = false;
+            }
+          })
+        );
+        
+        setProductOwnership(ownershipChecks);
       } catch (error) {
         console.error('Error loading inventory:', error);
         if (error.response?.status === 401) {
@@ -55,6 +86,53 @@ const InventoryProductsPage = () => {
 
     fetchInventoryProducts();
   }, [navigate]);
+
+  const handleDeleteProduct = async (product) => {
+    if (!product?.product_id) {
+      console.error("Invalid product data");
+      return;
+    }
+    
+    if (window.confirm(`Are you sure you want to delete "${product.product_name}"? This action cannot be undone.`)) {
+      try {
+        setDeletingProductId(product.product_id);
+        const token = localStorage.getItem('authToken');
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        };
+  
+        await axios.delete(
+          `http://localhost:8000/api/product/${product.product_id}`, 
+          { headers }
+        );
+  
+        setInventoryProducts(prev => prev.filter(p => p.product_id !== product.product_id));
+        toast.success('Product deleted successfully');
+      } catch (error) {
+        console.error('Delete error:', error);
+        toast.error(error.response?.data?.message || 'Failed to delete product');
+      } finally {
+        setDeletingProductId(null);
+      }
+    }
+  };
+
+  const handleEditProduct = (product) => {
+    navigate(`/inventory/products/${product.product_id}/edit`);
+  };
+
+  // Updated handleAddToCart - now opens the modal
+  const handleAddToCart = (product) => {
+    setSelectedProduct(product);
+    setIsModalOpen(true);
+  };
+  
+  // Handler for when the modal is closed
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedProduct(null);
+  };
 
   // Filter products based on search term and category
   const filteredProducts = inventoryProducts.filter(product => {
@@ -121,64 +199,18 @@ const InventoryProductsPage = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
-              <div key={product.product_id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                {/* Product Image */}
-                <div className="h-48 bg-gray-100 flex items-center justify-center relative">
-                  <img 
-                    src={product.image || '/placeholder-product.jpg'} 
-                    alt={product.product_name}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/placeholder-product.jpg';
-                    }}
-                  />
-                </div>
-                
-                {/* Product Info */}
-                <div className="p-5">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {product.product_name}
-                    </h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      product.stock > 10 
-                        ? 'bg-green-100 text-green-800' 
-                        : product.stock > 0 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : 'bg-red-100 text-red-800'
-                    }`}>
-                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-gray-500 mt-1">Category: {product.category}</p>
-                  
-                  <div className="mt-3 flex items-center">
-                    <span className="text-xl font-bold text-[#00796B]">
-                      ${parseFloat(product.price).toFixed(2)}
-                    </span>
-                    {product.inventory_price && (
-                      <span className="ml-2 text-sm text-gray-500">
-                        Cost: ${parseFloat(product.inventory_price).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Added: {new Date(product.created_at || product.added_date).toLocaleDateString()}
-                    </span>
-                    
-                    <button 
-                      onClick={() => navigate(`/inventory/products/${product.product_id}`)}
-                      className="flex items-center px-3 py-1 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors text-sm"
-                    >
-                      View Details <FiArrowRight className="ml-1" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ProductCard
+                key={product.product_id}
+                product={product}
+                isOwner={productOwnership[product.product_id] || false}
+                storageUrl={storageUrl}
+                deletingProductId={deletingProductId}
+                onDeleteProduct={handleDeleteProduct}
+                onEditProduct={handleEditProduct}
+                onAddToCart={handleAddToCart}
+                onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
+                showInventoryPrice={true}
+              />
             ))}
           </div>
 
@@ -204,6 +236,13 @@ const InventoryProductsPage = () => {
           )}
         </>
       )}
+      
+      {/* Add To Cart Modal */}
+      <AddToCartModal 
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        product={selectedProduct}
+      />
     </div>
   );
 };

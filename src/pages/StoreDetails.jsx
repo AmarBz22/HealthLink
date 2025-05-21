@@ -168,9 +168,9 @@ const StoreDetailsPage = () => {
   };
 
   // New function to confirm moving product to inventory
-  const handleConfirmInventory = async () => {
+  const handleConfirmInventory = async (inventoryPrice) => {
     if (!productToInventory?.product_id) return;
-
+  
     try {
       setProcessingInventory(true);
       const token = localStorage.getItem('authToken');
@@ -179,18 +179,21 @@ const StoreDetailsPage = () => {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       };
-
+  
+      // The key change is here - adding inventory_price to the request
       const response = await axios.post(
         'http://127.0.0.1:8000/api/products/stock-clearance',
-        { store_product_id: productToInventory.product_id },
+        { 
+          store_product_id: productToInventory.product_id,
+          inventory_price: parseFloat(inventoryPrice)  // This line is new
+        },
         { headers }
       );
-
-      // Remove the product from the product list as it's moved to inventory
+  
+      // The rest of the function remains the same
       setProducts(prev => prev.filter(p => p.product_id !== productToInventory.product_id));
       toast.success('Product moved to inventory successfully');
       
-      // Optional: Log the response
       console.log('Inventory response:', response.data);
     } catch (error) {
       console.error('Inventory error:', error);

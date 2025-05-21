@@ -10,13 +10,9 @@ const Basket = () => {
     updateQuantity,
     subtotal,
     totalItems,
-    clearBasket
+    clearBasket,
+    proceedToCheckout
   } = useBasket();
-
-  const handleCheckout = () => {
-    console.log('Proceeding to checkout with:', basket);
-    // Navigate to checkout page
-  };
 
   if (!isBasketOpen) return null;
 
@@ -62,7 +58,7 @@ const Basket = () => {
                     <div className="flex justify-between items-start">
                       <div className="flex-1 mr-4">
                         <h3 className="font-medium text-gray-900">{item.product_name}</h3>
-                        <p className="text-gray-600 text-sm">${item.price.toFixed(2)} each</p>
+                        <p className="text-gray-600 text-sm">${item.price} each</p>
                       </div>
                       
                       <div className="flex items-center space-x-3">
@@ -117,7 +113,7 @@ const Basket = () => {
                 </button>
                 
                 <button 
-                  onClick={handleCheckout}
+                  onClick={proceedToCheckout}
                   className="flex-1 py-3 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors font-medium flex items-center justify-center"
                 >
                   Checkout

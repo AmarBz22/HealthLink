@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
-import Sidebar from "./Sidebar";
 import Basket from "./Basket";
 import { BasketProvider } from "../context/BasketContext";
 import { FiShoppingCart } from "react-icons/fi";
@@ -10,27 +9,22 @@ const Layout = () => {
   return (
     <BasketProvider>
       <div className="relative flex h-screen flex-col bg-gray-100">
-        {/* Navbar (without any basket elements) */}
+        {/* Navbar (now contains all navigation elements) */}
         <header className="fixed top-0 left-0 right-0 h-16 z-50 bg-white shadow-sm">
           <Navbar />
         </header>
 
-        {/* Main Content */}
+        {/* Main Content (without sidebar) */}
         <div className="flex flex-1 pt-16">
-          {/* Sidebar (without basket elements) */}
-          <aside className="fixed top-16 left-0 bottom-0 w-22 z-40 overflow-y-auto bg-white border-r border-gray-200">
-            <Sidebar />
-          </aside>
-
-          {/* Content Area */}
-          <main className="flex-1 ml-20 overflow-y-auto bg-gray-50">
+          {/* Content Area (now takes full width) */}
+          <main className="flex-1 overflow-y-auto bg-gray-50">
             <div className="max-w-6xl mx-auto p-6 min-h-full">
               <Outlet />
             </div>
           </main>
         </div>
 
-        {/* Floating Cart Button (only basket UI element) */}
+        {/* Floating Cart Button */}
         <FloatingCartButton />
         
         {/* Basket Sidebar (appears when button clicked) */}

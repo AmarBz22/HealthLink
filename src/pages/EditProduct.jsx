@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FiSave, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
+import { FiSave, FiX, FiUpload, FiTrash2, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -8,10 +8,8 @@ const EditProductPage = () => {
   const { storeId, productId } = useParams();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
-
-  // Add states for original data and modified fields tracking
   const [originalProductData, setOriginalProductData] = useState(null);
   const [modifiedFields, setModifiedFields] = useState({});
 
@@ -21,12 +19,15 @@ const EditProductPage = () => {
     product_name: "",
     description: "",
     price: "",
+    inventory_price: "",
     stock: "",
     category: "Medical Devices",
-    image_url: ""
+    type: "new",
+    images: []
   });
 
-  const [previewImage, setPreviewImage] = useState(null);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,17 +53,15 @@ const EditProductPage = () => {
           "Accept": "application/json"
         };
 
-        // Fetch product data and user data in parallel
+        // Fetch product data with images and user data in parallel
         const [productResponse, userResponse] = await Promise.all([
-          axios.get(`http://localhost:8000/api/product/${productId}`, { headers }),
+          axios.get(`http://localhost:8000/api/product/${productId}?with_images=true`, { headers }),
           axios.get('http://localhost:8000/api/user', { headers }).catch(() => null)
         ]);
 
-        const product = productResponse.data // Access first item in array
+        const product = productResponse.data;
         const storeResponse = await axios.get(`http://localhost:8000/api/store/${storeId}`, { headers });
-        console.log(productResponse)
-        console.log(storeResponse)
-        console.log(userResponse)
+
         // Check if current user is the owner
         if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
           setIsOwner(true);
@@ -78,17 +77,24 @@ const EditProductPage = () => {
           product_id: productId,
           product_name: product.product_name,
           description: product.description,
-          price: product.price, // Map  to price
+          price: product.price,
+          inventory_price: product.inventory_price || "",
           stock: product.stock,
           category: product.category,
-          image_url: product.image
+          type: product.type || "new",
+          images: product.images || []
         };
 
         setProductData(initialProductData);
-        setOriginalProductData(initialProductData); // Store original data
+        setOriginalProductData(initialProductData);
 
-        if (product.image) {
-          setPreviewImage(product.image);
+        // Set preview images if they exist
+        if (product.images && product.images.length > 0) {
+          setPreviewImages(product.images.map(img => ({
+            url: img.image_path,
+            name: img.image_path.split('/').pop(),
+            isExisting: true
+          })));
         }
 
         setIsLoading(false);
@@ -110,7 +116,7 @@ const EditProductPage = () => {
     // Track modified fields by comparing with original data
     setModifiedFields(prev => ({
       ...prev,
-      [name]: value !== originalProductData[name] ? value : undefined
+      [name]: value !== originalProductData?.[name] ? value : undefined
     }));
   };
 
@@ -122,35 +128,42 @@ const EditProductPage = () => {
   
     try {
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication required");
+      if (!token) throw new Error("Authentication required");
+
+      // Validate inventory price if type is inventory
+      if (productData.type === 'inventory' && !productData.inventory_price) {
+        throw new Error("Inventory price is required for inventory products");
       }
-  
+
       const formData = new FormData();
       
-      // Always include ALL required fields
-      formData.append("product_name", productData.product_name || "");
-      formData.append("category", productData.category || "Medical Devices");
-      formData.append("price", productData.price || "0");
-      formData.append("stock", productData.stock || "0");
+      // Always include required fields
+      formData.append("_method", "PUT"); // Laravel's way to handle PUT requests via POST
+      formData.append("store_id", productData.store_id);
+      formData.append("product_name", productData.product_name);
+      formData.append("category", productData.category);
+      formData.append("price", productData.price);
+      formData.append("stock", productData.stock);
+      formData.append("type", productData.type);
       
-      // Include optional fields
-      if (productData.description) {
-        formData.append("description", productData.description);
-      }
+      // Include optional fields if they exist
+      if (productData.description) formData.append("description", productData.description);
+      if (productData.inventory_price) formData.append("inventory_price", productData.inventory_price);
       
-      // Handle image
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      } else if (modifiedFields.image_url === null) {
-        formData.append("remove_image", "1");
+      // Handle images - new files to upload
+      selectedFiles.forEach(file => {
+        formData.append("images[]", file);
+      });
+      
+      // Handle image removals - track which existing images to keep
+      const imagesToKeep = previewImages
+        .filter(img => img.isExisting)
+        .map(img => img.url.split('/').pop());
+      
+      if (imagesToKeep.length > 0) {
+        formData.append("images_to_keep", JSON.stringify(imagesToKeep));
       }
-  
-      // Debug: Log what we're sending
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-  
+
       const response = await axios.post(
         `http://localhost:8000/api/product/${productId}`,
         formData,
@@ -158,13 +171,10 @@ const EditProductPage = () => {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "multipart/form-data"
-          },
-          params: {
-            _method: "PUT" // Laravel's way to handle PUT requests via POST
           }
         }
       );
-  
+
       toast.success("Product updated successfully");
       navigate(`/store/${storeId}`);
     } catch (error) {
@@ -177,7 +187,7 @@ const EditProductPage = () => {
           .join('\n');
         toast.error(errorMessages);
       } else {
-        toast.error(error.response?.data?.message || "Failed to update product");
+        toast.error(error.response?.data?.message || error.message || "Failed to update product");
       }
     } finally {
       setIsSubmitting(false);
@@ -185,33 +195,80 @@ const EditProductPage = () => {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.size <= 2 * 1024 * 1024) {
-      setSelectedFile(file);
-      setModifiedFields(prev => ({ ...prev, image_url: null })); // Mark image as changed
-      
+    const files = Array.from(e.target.files);
+    
+    // Validate files
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) { // 10MB max
+        toast.error(`Image ${file.name} exceeds 10MB limit`);
+        return false;
+      }
+      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+        toast.error(`Image ${file.name} must be JPEG, JPG, or PNG`);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validFiles.length === 0) return;
+    
+    // Update selected files
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    
+    // Create previews
+    validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreviewImage(reader.result);
+        setPreviewImages(prev => [...prev, { 
+          url: reader.result, 
+          name: file.name,
+          isExisting: false
+        }]);
       };
       reader.readAsDataURL(file);
-    } else if (file) {
-      toast.error("Image size should be less than 2MB");
-    }
+    });
+
+    // Mark images as modified
+    setModifiedFields(prev => ({ ...prev, images: true }));
   };
 
-  const removeImage = () => {
-    setSelectedFile(null);
-    setModifiedFields(prev => ({ ...prev, image_url: null })); // Mark image as removed
-    setPreviewImage(null);
-    if (fileInputRef.current) {
+  const removeImage = (index) => {
+    const imageToRemove = previewImages[index];
+    
+    if (imageToRemove.isExisting) {
+      // For existing images, we'll track their removal in the form data
+      setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      // For new images not yet uploaded, we can just remove them
+      setPreviewImages(prev => prev.filter((_, i) => i !== index));
+      setSelectedFiles(prev => prev.filter((_, i) => i !== index - (previewImages.length - selectedFiles.length)));
+    }
+
+    // Reset file input if all images are removed
+    if (previewImages.length === 1 && fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+
+    // Mark images as modified
+    setModifiedFields(prev => ({ ...prev, images: true }));
   };
 
-  // Helper function to check if field is modified
+  const navigateImage = (direction) => {
+    setCurrentImageIndex(prev => {
+      if (direction === 'prev') {
+        return prev === 0 ? previewImages.length - 1 : prev - 1;
+      } else {
+        return prev === previewImages.length - 1 ? 0 : prev + 1;
+      }
+    });
+  };
+
   const isFieldModified = (fieldName) => {
     return modifiedFields[fieldName] !== undefined;
+  };
+
+  const hasChanges = () => {
+    return Object.keys(modifiedFields).length > 0 || selectedFiles.length > 0;
   };
 
   if (isLoading) {
@@ -296,6 +353,24 @@ const EditProductPage = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Type*</label>
+                <select
+                  name="type"
+                  value={productData.type}
+                  onChange={handleChange}
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                    isFieldModified('type') 
+                      ? 'border-[#00796B] bg-[#E8F5E9]' 
+                      : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  <option value="new">New Product</option>
+                  <option value="inventory">Inventory Product</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   name="description"
@@ -337,6 +412,29 @@ const EditProductPage = () => {
                 </div>
               </div>
 
+              {productData.type === 'inventory' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Inventory Price (USD)*</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      name="inventory_price"
+                      min="0"
+                      step="0.01"
+                      value={productData.inventory_price}
+                      onChange={handleChange}
+                      className={`w-full border rounded-md pl-7 pr-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
+                        isFieldModified('inventory_price') 
+                          ? 'border-[#00796B] bg-[#E8F5E9]' 
+                          : 'border-gray-300'
+                      }`}
+                      required={productData.type === 'inventory'}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity*</label>
                 <input
@@ -356,28 +454,89 @@ const EditProductPage = () => {
 
               {/* Image Upload Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
-                {previewImage ? (
-                  <div className="relative">
-                    <img
-                      src={previewImage}
-                      alt="Product preview"
-                      className="h-40 w-full object-contain rounded-md border border-gray-300"
-                    />
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm border border-gray-300 hover:bg-gray-50"
-                      aria-label="Remove image"
-                    >
-                      <FiTrash2 className="h-4 w-4 text-gray-500" />
-                    </button>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Product Images</label>
+                {previewImages.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="relative w-full h-48 overflow-hidden rounded-lg bg-gray-100">
+                      <img
+                        src={previewImages[currentImageIndex].url}
+                        alt={`Product image ${currentImageIndex + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      
+                      {/* Navigation arrows */}
+                      {previewImages.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => navigateImage('prev')}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1 shadow-md hover:bg-white"
+                          >
+                            <FiChevronLeft className="text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigateImage('next')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1 shadow-md hover:bg-white"
+                          >
+                            <FiChevronRight className="text-gray-700" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Image indicators */}
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+                        {previewImages.map((_, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => setCurrentImageIndex(index)}
+                            className={`w-2 h-2 rounded-full ${currentImageIndex === index ? 'bg-[#00796B]' : 'bg-white/80'}`}
+                          />
+                        ))}
+                      </div>
+                      
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(currentImageIndex)}
+                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm border border-gray-300 hover:bg-gray-50"
+                      >
+                        <FiTrash2 className="h-4 w-4 text-gray-500" />
+                      </button>
+                    </div>
+                    
+                    <label className="block">
+                      <div 
+                        className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors ${
+                          isFieldModified('images') 
+                            ? 'border-[#00796B] bg-[#E8F5E9]' 
+                            : 'border-gray-300'
+                        }`}
+                      >
+                        <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
+                        <p className="mt-1 text-sm text-gray-600">
+                          Click to upload more images
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PNG, JPG up to 10MB each
+                        </p>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleImageChange}
+                        accept="image/png, image/jpeg, image/jpg"
+                        multiple
+                      />
+                    </label>
                   </div>
                 ) : (
                   <label className="block">
                     <div 
                       className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors ${
-                        isFieldModified('image_url') 
+                        isFieldModified('images') 
                           ? 'border-[#00796B] bg-[#E8F5E9]' 
                           : 'border-gray-300'
                       }`}
@@ -387,7 +546,7 @@ const EditProductPage = () => {
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG up to 2MB
+                        PNG, JPG up to 10MB each (multiple allowed)
                       </p>
                     </div>
                     <input
@@ -396,7 +555,7 @@ const EditProductPage = () => {
                       className="hidden"
                       onChange={handleImageChange}
                       accept="image/png, image/jpeg, image/jpg"
-                      aria-label="Product image upload"
+                      multiple
                     />
                   </label>
                 )}
@@ -407,7 +566,7 @@ const EditProductPage = () => {
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting || Object.keys(modifiedFields).length === 0}
+              disabled={isSubmitting || !hasChanges()}
               className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (

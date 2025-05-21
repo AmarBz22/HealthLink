@@ -14,7 +14,8 @@ const EditProfilePage = () => {
         phone_number: "",
         wilaya: "",
         role: "",
-        password: ""
+        password: "",
+        profile_image: null
     });
 
     const [loading, setLoading] = useState(true);
@@ -22,6 +23,9 @@ const EditProfilePage = () => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [confirmPassword, setConfirmPassword] = useState("");
     const [passwordError, setPasswordError] = useState("");
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageError, setImageError] = useState(false);
 
     const getAuthToken = () => {
         return localStorage.getItem('authToken');
@@ -41,7 +45,6 @@ const EditProfilePage = () => {
             console.log("Axios response:", response);
       
             if (response.data) {
-              // Assuming response.data contains the 'user' object
               setUser({
                 id: response.data.id,
                 first_name: response.data.first_name,
@@ -50,9 +53,20 @@ const EditProfilePage = () => {
                 phone_number: response.data.phone_number,
                 wilaya: response.data.wilaya,
                 role: response.data.role,
-                profilePic: response.data.profilePic || null,
-                password: "********", // Don't expose actual password
+                profile_image: response.data.profile_image || null,
+                password: "********",
               });
+    
+              // Set image preview if profile image exists
+              if (response.data.profile_image) {
+                // Reset any previous image errors
+                setImageError(false);
+                
+                // Use the image URL directly as provided by the API
+                const imageUrl = response.data.profile_image;
+                console.log("Setting image preview URL:", imageUrl);
+                setImagePreview(imageUrl);
+              }
             }
           } catch (error) {
             console.error("Error fetching user data with Axios:", error);
@@ -78,6 +92,89 @@ const EditProfilePage = () => {
         setShowConfirmation(true);
         setConfirmPassword("");
         setPasswordError("");
+    };
+
+    const handleImageClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleImageChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Check file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/svg+xml'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPEG, PNG, JPG, GIF, SVG)');
+            return;
+        }
+
+        // Check file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image size should be less than 2MB');
+            return;
+        }
+
+        // Create a preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+            setImageError(false); // Reset error state when loading new image
+        };
+        reader.readAsDataURL(file);
+
+        // Upload the image
+        await uploadProfileImage(file);
+    };
+
+    const uploadProfileImage = async (file) => {
+        setUploadingImage(true);
+        try {
+            const authToken = getAuthToken();
+            if (!authToken) {
+                throw new Error('No authentication token found');
+            }
+    
+            const formData = new FormData();
+            formData.append('image', file);
+    
+            const response = await axios.post(
+                'http://localhost:8000/api/profile/upload-image',
+                formData,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'multipart/form-data',
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+    
+            if (response.data) {
+                console.log('Profile image upload response:', response.data);
+                
+                // Use the profile image URL directly as returned by the API
+                const imageUrl = response.data.profile_image;
+                
+                // Update user state with the new profile image URL
+                setUser(prev => ({
+                    ...prev,
+                    profile_image: imageUrl
+                }));
+                
+                // No need to modify the URL - use it as is
+                setImagePreview(imageUrl);
+                setImageError(false);
+                
+                console.log('Profile image updated successfully with URL:', imageUrl);
+            }
+        } catch (error) {
+            console.error('Error uploading profile image:', error);
+            alert('Failed to upload profile image. Please try again.');
+            setImageError(true);
+        } finally {
+            setUploadingImage(false);
+        }
     };
 
     const verifyPassword = async () => {
@@ -167,9 +264,46 @@ const EditProfilePage = () => {
                 <form id="profileForm" onSubmit={handleSubmit} className="p-6 space-y-8">
                     {/* Profile Picture Section */}
                     <div className="flex flex-col items-center">
-                        <div className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center">
-                            <FiUser className="text-4xl text-gray-400" />
+                        <div 
+                            className="w-32 h-32 rounded-full border-4 border-[#B2DFDB] bg-gray-200 flex items-center justify-center relative overflow-hidden cursor-pointer group"
+                            onClick={handleImageClick}
+                        >
+                            {uploadingImage ? (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    {imagePreview && !imageError ? (
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Profile" 
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                console.error("Image failed to load:", e.target.src);
+                                                setImageError(true);
+                                            }}
+                                        />
+                                    ) : (
+                                        <FiUser className="text-4xl text-gray-400" />
+                                    )}
+                                    <div className="absolute inset-0  group-hover:bg-opacity-50 flex items-center justify-center transition-all duration-300">
+                                        <FiUpload className="text-white opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300" />
+                                    </div>
+                                </>
+                            )}
                         </div>
+
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleImageChange}
+                            className="hidden"
+                            accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
+                        />
+                        <p className="mt-2 text-sm text-[#00796B] cursor-pointer hover:underline" onClick={handleImageClick}>
+                            Change Profile Picture
+                        </p>
                         <h3 className="mt-3 text-xl font-semibold text-gray-800">
                             {user.first_name} {user.last_name}
                         </h3>

@@ -1,11 +1,12 @@
 import {
   LayoutDashboard,
   ShoppingCart,
-  ClipboardList,
+  Users,
   AlertCircle,
   LogOut,
   Package,
-  Tag
+  Tag,
+  FileText
 } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -70,6 +71,18 @@ const Sidebar = () => {
           </span>
         </Link>
         
+        {/* Orders Button with FileText Icon */}
+        <Link to="/orders" className="relative group">
+          <FileText 
+            className={`w-5 h-5 cursor-pointer ${
+              isActive('/orders') ? 'text-[#00796B]' : 'text-gray-400 hover:text-[#00796B]'
+            }`}
+          />
+          <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
+            Orders
+          </span>
+        </Link>
+        
         {/* Inventory Button with Tag Icon */}
         <Link to="/inventory-products" className="relative group">
           <div className="relative">
@@ -86,7 +99,7 @@ const Sidebar = () => {
         </Link>
         
         <Link to="/users" className="relative group">
-          <ClipboardList 
+          <Users 
             className={`w-5 h-5 cursor-pointer ${
               isActive('/users') ? 'text-[#00796B]' : 'text-gray-400 hover:text-[#00796B]'
             }`}

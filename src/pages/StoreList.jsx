@@ -1,4 +1,4 @@
-import { FiMapPin, FiPhone, FiMail, FiStar, FiSearch, FiCheckCircle, FiTrash2 } from "react-icons/fi";
+import { FiMapPin, FiPhone, FiMail, FiStar, FiSearch, FiCheckCircle, FiTrash2, FiPlus } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -69,6 +69,7 @@ const StoreListingPage = () => {
   const [deletingStoreId, setDeletingStoreId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
 
   useEffect(() => {
     if (location.state?.success) {
@@ -103,6 +104,7 @@ const StoreListingPage = () => {
       const currentUser = userResponse.data;
       const userId = currentUser.id;
       setCurrentUserId(userId);
+      setCurrentUserRole(currentUser.role);
   
       // Then fetch stores
       const response = await axios.get("http://localhost:8000/api/stores", { headers });
@@ -162,6 +164,9 @@ const StoreListingPage = () => {
            store.description?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  // Check if user can create a store (not a doctor)
+  const canCreateStore = currentUserRole && currentUserRole !== 'Doctor' && currentUserRole !== 'Dentist';
+
   // Create skeleton array for loading state
   const skeletonArray = Array(6).fill(0);
 
@@ -194,16 +199,31 @@ const StoreListingPage = () => {
 
         {/* Header with gradient background */}
         <div className="bg-gradient-to-r from-[#004D40] to-[#00796B] text-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold">Medical Stores Directory</h1>
-          <p className="mt-2 opacity-90">
-            {!loading && (
-              <>
-                Browse {stores.length} medical equipment suppliers
-                {stores.filter(s => s.isOwner).length > 0 && 
-                  ` (including your ${stores.filter(s => s.isOwner).length} store${stores.filter(s => s.isOwner).length > 1 ? 's' : ''})`}
-              </>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">Medical Stores Directory</h1>
+              <p className="mt-2 opacity-90">
+                {!loading && (
+                  <>
+                    Browse {stores.length} medical equipment suppliers
+                    {stores.filter(s => s.isOwner).length > 0 && 
+                      ` (including your ${stores.filter(s => s.isOwner).length} store${stores.filter(s => s.isOwner).length > 1 ? 's' : ''})`}
+                  </>
+                )}
+              </p>
+            </div>
+            
+            {/* Add Store button - only shown for non-doctor users */}
+            {canCreateStore && (
+              <button
+                onClick={() => navigate('/store/add')}
+                className="bg-white text-[#00796B] hover:bg-[#E0F2F1] px-4 py-2 rounded-md flex items-center transition-colors shadow-sm font-medium"
+              >
+                <FiPlus className="mr-2" />
+                Add Store
+              </button>
             )}
-          </p>
+          </div>
         </div>
 
         {/* Search and Filter Bar */}
