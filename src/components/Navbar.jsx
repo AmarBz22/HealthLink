@@ -157,12 +157,23 @@ const Navbar = () => {
           </span>
         </Link>
         
-        {/* Orders - For all logged in users */}
-        <Link to="/orders" className="flex items-center space-x-1 group">
+        {/* Orders - For all logged in users, but Admin goes to admin orders */}
+        <Link 
+          to={userRole === 'Admin' ? "/admin-orders" : "/orders"} 
+          className="flex items-center space-x-1 group"
+        >
           <FileText 
-            className={`w-5 h-5 ${isActive('/orders') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
+            className={`w-5 h-5 ${
+              (isActive('/orders') || isActive('/admin-orders')) 
+                ? 'text-[#00796B]' 
+                : 'text-gray-400 group-hover:text-[#00796B]'
+            }`}
           />
-          <span className={`text-sm ${isActive('/orders') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
+          <span className={`text-sm ${
+            (isActive('/orders') || isActive('/admin-orders')) 
+              ? 'text-[#00796B] font-medium' 
+              : 'text-gray-500 group-hover:text-[#00796B]'
+          }`}>
             Orders
           </span>
         </Link>

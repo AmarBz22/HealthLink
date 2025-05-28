@@ -84,43 +84,88 @@ const DashboardPage = () => {
         });
         console.log('User data retrieved:', { 
           name: userResponse.first_name + ' ' + userResponse.last_name, 
-          role: userResponse.role
+          role: userResponse.role,
+          id: userResponse.id
         });
 
-        // Check if user is admin, if not redirect
-        // Case-insensitive check for 'admin' role
-        if (userResponse.role?.toLowerCase() !== 'admin') {
+        // Check if user is admin or supplier, if not redirect
+        const userRole = userResponse.role?.toLowerCase();
+        if (userRole !== 'admin' && userRole !== 'supplier') {
           toast.error('You do not have permission to access this page');
-          console.log('Non-admin user trying to access admin dashboard, redirecting to home');
+          console.log('Unauthorized user trying to access dashboard, redirecting to home');
           navigate('/');
           return;
         }
 
-        // Use Promise.all to fetch data in parallel
-        const [usersData, storesData, productsData] = await Promise.all([
-          // Fetch users like in the UsersManagementPage
-          fetchWithErrorHandling('http://localhost:8000/api/admin/users', headers),
-          fetchWithErrorHandling('http://localhost:8000/api/stores', headers),
-          fetchWithErrorHandling('http://localhost:8000/api/products', headers)
-        ]);
-        
-        console.log('Dashboard data fetched successfully:',
-          { 
-            usersCount: usersData?.length || 0, 
-            storesCount: storesData?.length || 0, 
-            productsCount: productsData?.length || 0 
-          }
-        );
-        
-        // Format and set users data
-        const formattedUsers = Array.isArray(usersData.users) ? usersData.users : 
-                              (Array.isArray(usersData) ? usersData : []);
-        
-        setDashboardData({
-          users: formattedUsers,
-          stores: Array.isArray(storesData) ? storesData : [],
-          products: Array.isArray(productsData) ? productsData : [],
-        });
+        // Fetch data based on user role
+        if (userRole === 'admin') {
+          // Admin can see all data
+          const [usersData, storesData, productsData] = await Promise.all([
+            fetchWithErrorHandling('http://localhost:8000/api/admin/users', headers),
+            fetchWithErrorHandling('http://localhost:8000/api/stores', headers),
+            fetchWithErrorHandling('http://localhost:8000/api/products', headers)
+          ]);
+          
+          console.log('Admin dashboard data fetched successfully:',
+            { 
+              usersCount: usersData?.length || 0, 
+              storesCount: storesData?.length || 0, 
+              productsCount: productsData?.length || 0 
+            }
+          );
+          
+          // Format and set admin data
+          const formattedUsers = Array.isArray(usersData.users) ? usersData.users : 
+                                (Array.isArray(usersData) ? usersData : []);
+          
+          setDashboardData({
+            users: formattedUsers,
+            stores: Array.isArray(storesData) ? storesData : [],
+            products: Array.isArray(productsData) ? productsData : [],
+          });
+        } else if (userRole === 'supplier') {
+          // Supplier can only see their own stores and products
+          // Fetch all data first, then filter by owner_id
+          const [allStoresData, allProductsData] = await Promise.all([
+            fetchWithErrorHandling('http://localhost:8000/api/stores', headers),
+            fetchWithErrorHandling('http://localhost:8000/api/products', headers)
+          ]);
+          
+          // Filter stores by owner_id matching user id
+          const supplierStores = Array.isArray(allStoresData) ? 
+            allStoresData.filter(store => store.owner_id === userResponse.id) : [];
+          
+          // Filter products by owner_id matching user id (assuming products have owner_id)
+          // If products don't have owner_id directly, you might need to filter by store_id
+          const supplierProducts = Array.isArray(allProductsData) ? 
+            allProductsData.filter(product => {
+              // If product has owner_id, use it directly
+              if (product.owner_id) {
+                return product.owner_id === userResponse.id;
+              }
+              // If product has store_id, check if it belongs to supplier's stores
+              if (product.store_id) {
+                return supplierStores.some(store => store.id === product.store_id);
+              }
+              return false;
+            }) : [];
+          
+          console.log('Supplier dashboard data processed:',
+            { 
+              totalStores: allStoresData?.length || 0,
+              supplierStores: supplierStores.length,
+              totalProducts: allProductsData?.length || 0,
+              supplierProducts: supplierProducts.length,
+              userId: userResponse.id
+            }
+          );
+          
+          setDashboardData({
+            users: [], // Suppliers don't see users
+            stores: supplierStores,
+            products: supplierProducts,
+          });
+        }
       } catch (error) {
         console.error('Error in main dashboard data loading function:', error);
         setError({ main: error.message || 'Unknown error occurred' });
@@ -181,17 +226,29 @@ const DashboardPage = () => {
     );
   };
 
+  // Check if user is admin
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isSupplier = user?.role?.toLowerCase() === 'supplier';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <FiHome className="mr-2 text-[#00796B]" /> Admin Dashboard
+            <FiHome className="mr-2 text-[#00796B]" /> 
+            {isAdmin ? 'Admin Dashboard' : 'Supplier Dashboard'}
           </h1>
           <p className="text-gray-600 mt-1">
-            Welcome back, {user?.name || 'Admin'}!
+            Welcome back, {user?.name || (isAdmin ? 'Admin' : 'Supplier')}!
           </p>
+          <div className="mt-2">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+            }`}>
+              {user?.role || 'User'} View
+            </span>
+          </div>
         </div>
         
         <div className="mt-4 md:mt-0 relative w-full md:w-64">
@@ -218,14 +275,16 @@ const DashboardPage = () => {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
             <div className="bg-white rounded-xl shadow p-6 border-l-4 border-[#00796B]">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-green-100 mr-4">
                   <FiShoppingBag className="h-6 w-6 text-[#00796B]" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm font-medium">Total Stores</p>
+                  <p className="text-gray-500 text-sm font-medium">
+                    {isSupplier ? 'My Stores' : 'Total Stores'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalStores}</p>
                 </div>
               </div>
@@ -237,38 +296,61 @@ const DashboardPage = () => {
                   <FiGrid className="h-6 w-6 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm font-medium">Total Products</p>
+                  <p className="text-gray-500 text-sm font-medium">
+                    {isSupplier ? 'My Products' : 'Total Products'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalProducts}</p>
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl shadow p-6 border-l-4 border-purple-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-purple-100 mr-4">
-                  <FiUsers className="h-6 w-6 text-purple-500" />
+            {isAdmin && (
+              <>
+                <div className="bg-white rounded-xl shadow p-6 border-l-4 border-purple-500">
+                  <div className="flex items-center">
+                    <div className="p-3 rounded-full bg-purple-100 mr-4">
+                      <FiUsers className="h-6 w-6 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-sm font-medium">Total Users</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Total Users</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+                
+                <div className="bg-white rounded-xl shadow p-6 border-l-4 border-red-500">
+                  <div className="flex items-center">
+                    <div className="p-3 rounded-full bg-red-100 mr-4">
+                      <FiBarChart2 className="h-6 w-6 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-sm font-medium">Monthly Sales</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        <FiTrendingUp className="inline h-5 w-5 text-green-500 mr-1" />
+                        12%
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
             
-            <div className="bg-white rounded-xl shadow p-6 border-l-4 border-red-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-red-100 mr-4">
-                  <FiBarChart2 className="h-6 w-6 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">Monthly Sales</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    <FiTrendingUp className="inline h-5 w-5 text-green-500 mr-1" />
-                    12%
-                  </p>
+            {isSupplier && (
+              <div className="bg-white rounded-xl shadow p-6 border-l-4 border-orange-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-orange-100 mr-4">
+                    <FiTrendingUp className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm font-medium">Store Performance</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      <FiTrendingUp className="inline h-5 w-5 text-green-500 mr-1" />
+                      8.5%
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Main Content */}
@@ -278,7 +360,8 @@ const DashboardPage = () => {
               <div className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                   <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                    <FiShoppingBag className="mr-2 text-[#00796B]" /> Stores
+                    <FiShoppingBag className="mr-2 text-[#00796B]" /> 
+                    {isSupplier ? 'My Stores' : 'Stores'}
                   </h2>
                   <button 
                     onClick={() => navigate('/stores')}
@@ -319,19 +402,22 @@ const DashboardPage = () => {
                   
                   {filterData(dashboardData.stores, 'store_name').length === 0 && (
                     <div className="text-center py-4">
-                      <p className="text-gray-500 text-sm">No stores found</p>
+                      <p className="text-gray-500 text-sm">
+                        {isSupplier ? 'No stores found. Create your first store!' : 'No stores found'}
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Products List (Replaced Users) */}
+            {/* Right Column - Products List */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                   <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                    <FiPackage className="mr-2 text-[#00796B]" /> Products
+                    <FiPackage className="mr-2 text-[#00796B]" /> 
+                    {isSupplier ? 'My Products' : 'Products'}
                   </h2>
                   <button 
                     onClick={() => navigate('/products')}
@@ -409,7 +495,7 @@ const DashboardPage = () => {
                       ) : (
                         <tr>
                           <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
-                            No products found
+                            {isSupplier ? 'No products found. Add your first product!' : 'No products found'}
                           </td>
                         </tr>
                       )}
@@ -426,126 +512,130 @@ const DashboardPage = () => {
             </div>
           </div>
           
-          {/* Bottom Section - Users List */}
-          <div className="mt-8 bg-white rounded-xl shadow overflow-hidden">
-            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                <FiUsers className="mr-2 text-[#00796B]" /> All Users
-              </h2>
-              <button 
-                onClick={() => navigate('/admin/users')}
-                className="text-sm text-[#00796B] hover:underline"
-              >
-                Manage Users
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Location
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {dashboardData.users.length > 0 ? (
-                    filterData(dashboardData.users, 'first_name')
-                      .slice(0, 10)
-                      .map((user, index) => (
-                        <tr key={user.id || index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                                {user.profile_image ? (
-                                  <img 
-                                    src={user.profile_image} 
-                                    alt={`${user.first_name} ${user.last_name}`} 
-                                    className="h-10 w-10 rounded-full"
-                                    onError={(e) => {
-                                      e.target.onerror = null;
-                                      e.target.innerText = user.first_name?.charAt(0) || 'U';
-                                    }}
-                                  />
-                                ) : (
-                                  <span>{user.first_name?.charAt(0) || 'U'}</span>
-                                )}
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {user.first_name} {user.last_name}
-                                </div>
-                                {user.phone_number && (
-                                  <div className="text-xs text-gray-500">
-                                    {user.phone_number}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{user.email}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              user.role?.toLowerCase() === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {user.role || 'user'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              user.banned === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {user.banned === 0 ? 'Active' : 'Banned'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {user.wilaya || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button 
-                              onClick={() => navigate(`/admin/users/${user.id}`)}
-                              className="text-[#00796B] hover:text-[#00695C]"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                        No users found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Bottom Section - Users List (Admin Only) */}
+          {isAdmin && (
+            <div className="mt-8 bg-white rounded-xl shadow overflow-hidden">
+              <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                  <FiUsers className="mr-2 text-[#00796B]" /> All Users
+                </h2>
+                <button 
+                  onClick={() => navigate('/admin/users')}
+                  className="text-sm text-[#00796B] hover:underline"
+                >
+                  Manage Users
+                </button>
+              </div>
               
-              {dashboardData.users.length > 0 && filterData(dashboardData.users, 'first_name').length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 text-sm">No matching users found</p>
-                </div>
-              )}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Role
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {dashboardData.users.length > 0 ? (
+                      filterData(dashboardData.users, 'first_name')
+                        .slice(0, 10)
+                        .map((user, index) => (
+                          <tr key={user.id || index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                  {user.profile_image ? (
+                                    <img 
+                                      src={user.profile_image} 
+                                      alt={`${user.first_name} ${user.last_name}`} 
+                                      className="h-10 w-10 rounded-full"
+                                      onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.innerText = user.first_name?.charAt(0) || 'U';
+                                      }}
+                                    />
+                                  ) : (
+                                    <span>{user.first_name?.charAt(0) || 'U'}</span>
+                                  )}
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {user.first_name} {user.last_name}
+                                  </div>
+                                  {user.phone_number && (
+                                    <div className="text-xs text-gray-500">
+                                      {user.phone_number}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{user.email}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                user.role?.toLowerCase() === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                                user.role?.toLowerCase() === 'supplier' ? 'bg-blue-100 text-blue-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {user.role || 'user'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                user.banned === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {user.banned === 0 ? 'Active' : 'Banned'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.wilaya || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button 
+                                onClick={() => navigate(`/admin/users/${user.id}`)}
+                                className="text-[#00796B] hover:text-[#00695C]"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                          No users found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                
+                {dashboardData.users.length > 0 && filterData(dashboardData.users, 'first_name').length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-sm">No matching users found</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

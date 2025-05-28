@@ -1,9 +1,11 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCalendar,  FiPackage, FiLoader, FiCheckCircle, FiUser, FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiPackage, FiLoader, FiCheckCircle, FiUser, FiMail, FiPhone, FiMapPin, FiTrash2, FiTruck } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import ApproveOrderModal from '../components/ApproveOrderModal';
+import DeleteOrderModal from '../components/DeleteOrderModal';
 
 const OrderStatusStep = ({ title, description, isActive, isCompleted }) => {
   return (
@@ -79,6 +81,11 @@ const OrderDetailPage = () => {
   const [error, setError] = useState(null);
   const [buyerInfo, setBuyerInfo] = useState(null);
   const [sellerInfo, setSellerInfo] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  // Modal states
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -94,6 +101,11 @@ const OrderDetailPage = () => {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         };
+
+        // Get current user data first
+        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
+        const userData = userResponse.data;
+        setCurrentUser(userData);
 
         // Fetch order details with eager loaded relationships
         const response = await axios.get(`http://localhost:8000/api/product-orders/${id}`, { headers });
@@ -181,39 +193,9 @@ const OrderDetailPage = () => {
 
   // Determine current order status (use the order_status field from ProductOrder model)
   const getOrderStatus = () => {
-    // Use the order_status from the model or default to 'processing'
-    return order?.order_status || 'processing';
+    // Use the order_status from the model or default to 'pending'
+    return order?.order_status || 'pending';
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="flex flex-col items-center">
-          <FiLoader className="animate-spin text-[#00796B] text-4xl mb-4" />
-          <p className="text-gray-600">Loading order details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-red-50 border border-red-200 p-6 rounded-lg text-center">
-          <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Order</h2>
-          <p className="text-red-600">{error || 'Order not found'}</p>
-          <button
-            onClick={() => navigate('/orders')}
-            className="mt-4 px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-          >
-            Back to Orders
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const orderStatus = getOrderStatus();
 
   // Map order status values to display text
   const getOrderStatusDisplay = (status) => {
@@ -228,7 +210,7 @@ const OrderDetailPage = () => {
     return statusMap[status] || status;
   };
 
-  // Get payment status display
+  // Get payment status display with proper coloring
   const getPaymentStatusDisplay = (status) => {
     const paymentStatusMap = {
       'paid': 'Paid',
@@ -237,6 +219,40 @@ const OrderDetailPage = () => {
       'refunded': 'Refunded'
     };
     return paymentStatusMap[status] || status;
+  };
+
+  // Get payment status color class
+  const getPaymentStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'paid':
+        return 'bg-green-50 text-green-700';
+      case 'pending':
+        return 'bg-yellow-50 text-yellow-700';
+      case 'failed':
+        return 'bg-red-50 text-red-700';
+      case 'refunded':
+        return 'bg-blue-50 text-blue-700';
+      default:
+        return 'bg-gray-50 text-gray-700';
+    }
+  };
+
+  // Get order status color class
+  const getOrderStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'delivered':
+      case 'completed':
+        return 'bg-green-50 text-green-700';
+      case 'shipped':
+        return 'bg-blue-50 text-blue-700';
+      case 'processing':
+        return 'bg-yellow-50 text-yellow-700';
+      case 'cancelled':
+        return 'bg-red-50 text-red-700';
+      case 'pending':
+      default:
+        return 'bg-gray-50 text-gray-700';
+    }
   };
 
   // Get correct items array
@@ -272,10 +288,150 @@ const OrderDetailPage = () => {
     return 0;
   };
 
+  // Determine if current user can manage this order
+  const canManageOrder = () => {
+    if (!currentUser || !order) return false;
+    return currentUser.id === order.seller_id;
+  };
+
+  // Determine if order can be approved
+  const canApproveOrder = () => {
+    if (!canManageOrder()) return false;
+    const status = getOrderStatus().toLowerCase();
+    return status !== 'processing' && status !== 'shipped' && status !== 'delivered' && status !== 'completed';
+  };
+
+  // Handle approve order - now opens modal
+  const handleApproveOrder = () => {
+    setShowApproveModal(true);
+  };
+
+  // Handle delete order - now opens modal
+  const handleDeleteOrder = () => {
+    setShowDeleteModal(true);
+  };
+
+  // Confirm approve order - called from modal
+  const confirmApproveOrder = async () => {
+    if (!order) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${order.product_order_id}/approve`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order approved successfully');
+      
+      // Update the order status locally
+      setOrder(prevOrder => ({ ...prevOrder, order_status: 'processing' }));
+      
+      // Close the modal
+      setShowApproveModal(false);
+      
+    } catch (error) {
+      console.error('Error approving order:', error);
+      toast.error('Failed to approve order');
+    }
+  };
+
+  // Confirm delete order - called from modal
+  const confirmDeleteOrder = async () => {
+    if (!order) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.delete(
+        `http://localhost:8000/api/product-orders/${order.product_order_id}`,
+        { headers }
+      );
+      
+      toast.success('Order deleted successfully');
+      
+      // Navigate back to orders page
+      navigate('/orders');
+      
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Failed to delete order');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="flex flex-col items-center">
+          <FiLoader className="animate-spin text-[#00796B] text-4xl mb-4" />
+          <p className="text-gray-600">Loading order details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-red-50 border border-red-200 p-6 rounded-lg text-center">
+          <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Order</h2>
+          <p className="text-red-600">{error || 'Order not found'}</p>
+          <button
+            onClick={() => navigate('/orders')}
+            className="mt-4 px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
+          >
+            Back to Orders
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const orderStatus = getOrderStatus();
   const orderItems = getOrderItems();
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Approve Order Modal */}
+      {showApproveModal && (
+        <ApproveOrderModal 
+          orderId={order.product_order_id || order.id}
+          orderNumber={order.product_order_id || order.id}
+          onClose={() => setShowApproveModal(false)}
+          onConfirm={confirmApproveOrder}
+        />
+      )}
+
+      {/* Delete Order Modal */}
+      {showDeleteModal && (
+        <DeleteOrderModal 
+          orderId={order.product_order_id || order.id}
+          orderNumber={order.product_order_id || order.id}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={confirmDeleteOrder}
+        />
+      )}
+
       <div className="mb-6">
         <button
           onClick={() => navigate('/orders')}
@@ -296,25 +452,39 @@ const OrderDetailPage = () => {
               <span className="text-gray-600">Order Date: <span className="font-medium text-gray-800">{formatDate(order.order_date)}</span></span>
             </div>
             <div className="flex space-x-3">
-              <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${
-                orderStatus === 'processing' ? 'bg-blue-50 text-blue-700' :
-                orderStatus === 'shipped' ? 'bg-indigo-50 text-indigo-700' :
-                orderStatus === 'delivered' || orderStatus === 'completed' ? 'bg-green-50 text-green-700' :
-                orderStatus === 'cancelled' ? 'bg-red-50 text-red-700' :
-                'bg-gray-50 text-gray-700'
-              }`}>
+              <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${getOrderStatusColor(orderStatus)}`}>
                 {getOrderStatusDisplay(orderStatus)}
               </div>
-              <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${
-                order.payment_status === 'paid' ? 'bg-green-50 text-green-700' :
-                order.payment_status === 'pending' ? 'bg-yellow-50 text-yellow-700' :
-                order.payment_status === 'failed' ? 'bg-red-50 text-red-700' :
-                'bg-gray-50 text-gray-700'
-              }`}>
+              <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${getPaymentStatusColor(order.payment_status)}`}>
                 {getPaymentStatusDisplay(order.payment_status)}
               </div>
             </div>
           </div>
+
+          {/* Action Buttons for Order Management */}
+          {canManageOrder() && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Order Management</h3>
+              <div className="flex space-x-3">
+                {canApproveOrder() && (
+                  <button
+                    onClick={handleApproveOrder}
+                    className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors flex items-center"
+                  >
+                    <FiTruck className="mr-2" size={16} />
+                    Approve Order
+                  </button>
+                )}
+                <button
+                  onClick={handleDeleteOrder}
+                  className="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm hover:bg-red-100 transition-colors flex items-center"
+                >
+                  <FiTrash2 className="mr-2" size={16} />
+                  Delete Order
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Buyer and Seller Information - Improved Design */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -451,7 +621,7 @@ const OrderDetailPage = () => {
                           Quantity: {item.quantity || 0} × ${getItemPrice(item)}
                         </div>
                         <div className="font-medium text-gray-900">
-                          ${(getItemPrice(item) * (item.quantity || 0))}
+                          ${(getItemPrice(item) * (item.quantity || 0)).toFixed(2)}
                         </div>
                       </div>
                     </div>

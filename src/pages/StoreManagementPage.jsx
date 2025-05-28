@@ -236,22 +236,6 @@ const StoreManagementPage = () => {
             </button>
           </div>
 
-          {/* Owner Info Display */}
-          {currentUser && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 mr-3">
-                  {currentUser.name?.charAt(0).toUpperCase() || "U"}
-                </div>
-                <div>
-                  <p className="font-medium text-blue-800">Creating store as: {currentUser.name}</p>
-                  <p className="text-sm text-blue-600">{currentUser.email}</p>
-                  <p className="text-sm text-blue-600">Role: {currentUser.role}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Store Information Form */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold text-[#00796B] mb-4 border-b pb-2">Store Details</h2>
@@ -312,12 +296,7 @@ const StoreManagementPage = () => {
             </div>
           </div>
           
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <p className="text-yellow-800">
-              <strong>Note:</strong> This form has been modified to match the backend requirements. 
-              Fields like description, email, specialties, and logo have been removed as they are not validated by the backend.
-            </p>
-          </div>
+         
         </main>
       </div>
     </div>

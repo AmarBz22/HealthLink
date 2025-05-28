@@ -12,8 +12,7 @@ import {
   FiChevronRight,
   FiTag,
   FiPackage,
-  FiInfo,
-  FiHeart
+  FiInfo
 } from 'react-icons/fi';
 
 const ProductDetailsPage = () => {
@@ -244,7 +243,7 @@ const ProductDetailsPage = () => {
       {/* Product Details Section */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-          {/* Image Gallery */}
+          {/* Enhanced Image Gallery */}
           <div className="flex flex-col space-y-4">
             {/* Main Image */}
             <div className="relative rounded-lg overflow-hidden bg-gray-100 aspect-square">
@@ -258,34 +257,41 @@ const ProductDetailsPage = () => {
                 }}
               />
               
-              {/* Image Navigation Controls */}
+              {/* Image Navigation Controls - Enhanced with better visibility */}
               {product.images?.length > 1 && (
                 <>
                   <button 
                     onClick={goToPrevImage}
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full p-2 text-gray-800"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-md text-gray-800 transition-all"
+                    aria-label="Previous image"
                   >
-                    <FiChevronLeft size={24} />
+                    <FiChevronLeft size={28} />
                   </button>
                   <button 
                     onClick={goToNextImage}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full p-2 text-gray-800"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-md text-gray-800 transition-all"
+                    aria-label="Next image"
                   >
-                    <FiChevronRight size={24} />
+                    <FiChevronRight size={28} />
                   </button>
+                  
+                  {/* Image Counter */}
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white px-3 py-1 rounded-full text-sm">
+                    {currentImageIndex + 1} / {product.images.length}
+                  </div>
                 </>
               )}
             </div>
             
-            {/* Thumbnails */}
+            {/* Enhanced Thumbnails Gallery */}
             {product.images?.length > 1 && (
-              <div className="flex space-x-2 overflow-x-auto pb-2">
+              <div className="grid grid-cols-5 gap-2">
                 {product.images.map((image, index) => (
                   <button 
                     key={index}
                     onClick={() => selectThumbnail(index)}
-                    className={`w-16 h-16 rounded-md overflow-hidden flex-shrink-0 border-2 ${
-                      currentImageIndex === index ? 'border-[#00796B]' : 'border-transparent'
+                    className={`aspect-square rounded-md overflow-hidden flex-shrink-0 border-2 hover:opacity-90 transition-all ${
+                      currentImageIndex === index ? 'border-[#00796B] ring-2 ring-[#00796B] ring-opacity-50' : 'border-transparent'
                     }`}
                   >
                     <img 
@@ -356,38 +362,8 @@ const ProductDetailsPage = () => {
               </div>
             </div>
             
-            {/* Quantity Selector */}
-            <div className="mb-6">
-              <label className="block text-gray-700 font-medium mb-2">Quantity</label>
-              <div className="flex items-center">
-                <button 
-                  onClick={decreaseQuantity}
-                  disabled={quantity <= 1}
-                  className={`p-2 border border-gray-300 rounded-l-md ${
-                    quantity <= 1 ? 'bg-gray-100 text-gray-400' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <FiMinus size={16} />
-                </button>
-                <input
-                  type="text"
-                  value={quantity}
-                  readOnly
-                  className="w-12 p-2 text-center border-t border-b border-gray-300 focus:outline-none"
-                />
-                <button 
-                  onClick={increaseQuantity}
-                  disabled={quantity >= (product.stock || 10)}
-                  className={`p-2 border border-gray-300 rounded-r-md ${
-                    quantity >= (product.stock || 10) ? 'bg-gray-100 text-gray-400' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <FiPlus size={16} />
-                </button>
-              </div>
-            </div>
             
-            {/* Action Buttons */}
+            {/* Action Buttons - Wishlist removed */}
             <div className="flex flex-col space-y-3 mt-auto">
               <button
                 onClick={handleAddToCart}
@@ -412,10 +388,6 @@ const ProductDetailsPage = () => {
                 } transition-colors`}
               >
                 Buy Now
-              </button>
-              
-              <button className="flex items-center justify-center text-gray-600 hover:text-red-500 py-2">
-                <FiHeart className="mr-2" /> Add to Wishlist
               </button>
             </div>
           </div>

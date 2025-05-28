@@ -26,7 +26,7 @@ const LoginPage = () => {
     setIsLoading(true);
     setError('');
     setIsBannedError(false);
-
+  
     try {
       const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
@@ -36,9 +36,9 @@ const LoginPage = () => {
         },
         body: JSON.stringify(formData)
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         // Handle banned user case
         if (response.status === 403 && data.message.includes('banned')) {
@@ -47,14 +47,20 @@ const LoginPage = () => {
         }
         throw new Error(data.message || 'Login failed');
       }
-
+  
       // Save token and user data
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       
-      // Redirect to dashboard
-      navigate('/dashboard');
-
+      // Role-based redirect
+      const userRole = data.user?.role;
+      
+      if (userRole === 'Admin' || userRole === 'Supplier') {
+        navigate('/dashboard');
+      } else {
+        navigate('/home');
+      }
+  
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message);
@@ -62,7 +68,6 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       {/* Left Section - Form */}

@@ -27,6 +27,9 @@ import OrdersPage from "./pages/OrdersPage";
 import OrderDetailPage from "./pages/OrderDetailsPage";
 import UsedMedicalEquipmentPage from "./pages/UsedMedicalEquipement";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
+import HomePage from "./pages/HomePage";
+import AddUsedEquipmentPage from "./pages/addUsedEquipement";
+import AdminOrders from "./pages/AdminOrders";
 
 // ✅ AuthCheck for protected routes
 function AuthCheck({ children }) {
@@ -86,6 +89,8 @@ function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="Home" element={<HomePage />} />
+
 
           <Route path="profile">
             <Route index element={<ProfilePage />} />
@@ -105,11 +110,18 @@ function App() {
 
           </Route>
           <Route path="inventory-products" element={<InventoryProductsPage />} />
-          <Route path="used-equipment" element={<UsedMedicalEquipmentPage/>} />
+          
+          <Route path="used-equipment"  >
+              <Route index element={<UsedMedicalEquipmentPage/>} />
+              <Route path="add" element={<AddUsedEquipmentPage />} />
+          </Route>
+          
           <Route path="/checkout" element={<CheckoutPage />} />
           
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
+          <Route path="/Admin-orders" element={<AdminOrders />} />
+
 
           <Route path="users">
             <Route index element={<UsersManagementPage />} />

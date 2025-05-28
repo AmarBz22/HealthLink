@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter } from 'react-icons/fi';
+import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter, FiUser, FiUsers } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -14,6 +14,7 @@ const InventoryProductsPage = () => {
   const [productOwnership, setProductOwnership] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [ownershipFilter, setOwnershipFilter] = useState(''); // New filter for ownership
   const [deletingProductId, setDeletingProductId] = useState(null);
   const storageUrl = 'http://localhost:8000/storage';
   
@@ -134,7 +135,7 @@ const InventoryProductsPage = () => {
     setSelectedProduct(null);
   };
 
-  // Filter products based on search term and category
+  // Filter products based on search term, category, and ownership
   const filteredProducts = inventoryProducts.filter(product => {
     const matchesSearch = searchTerm === '' || 
       product.product_name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -142,8 +143,22 @@ const InventoryProductsPage = () => {
     const matchesCategory = filterCategory === '' || 
       product.category === filterCategory;
     
-    return matchesSearch && matchesCategory;
+    const isOwner = productOwnership[product.product_id] || false;
+    const matchesOwnership = ownershipFilter === '' || 
+      (ownershipFilter === 'my' && isOwner) ||
+      (ownershipFilter === 'others' && !isOwner);
+    
+    return matchesSearch && matchesCategory && matchesOwnership;
   });
+
+  // Count products for filter badges
+  const myProductsCount = inventoryProducts.filter(product => 
+    productOwnership[product.product_id] || false
+  ).length;
+  
+  const otherProductsCount = inventoryProducts.filter(product => 
+    !(productOwnership[product.product_id] || false)
+  ).length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -160,7 +175,7 @@ const InventoryProductsPage = () => {
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row gap-4 mb-8">
         <div className="relative flex-grow">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <FiSearch className="text-gray-400" />
@@ -174,7 +189,7 @@ const InventoryProductsPage = () => {
           />
         </div>
         
-        <div className="relative w-full md:w-64">
+        <div className="relative w-full lg:w-64">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <FiFilter className="text-gray-400" />
           </div>
@@ -189,6 +204,58 @@ const InventoryProductsPage = () => {
             ))}
           </select>
         </div>
+
+        {/* Ownership Filter */}
+        <div className="relative w-full lg:w-64">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FiUser className="text-gray-400" />
+          </div>
+          <select
+            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+            value={ownershipFilter}
+            onChange={(e) => setOwnershipFilter(e.target.value)}
+          >
+            <option value="">All Products</option>
+            <option value="my">My Products ({myProductsCount})</option>
+            <option value="others">Other Products ({otherProductsCount})</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Filter Badges */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => setOwnershipFilter('')}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            ownershipFilter === '' 
+              ? 'bg-[#00796B] text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          All ({inventoryProducts.length})
+        </button>
+        <button
+          onClick={() => setOwnershipFilter('my')}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+            ownershipFilter === 'my' 
+              ? 'bg-[#00796B] text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <FiUser className="w-3 h-3 mr-1" />
+          My Products ({myProductsCount})
+        </button>
+        <button
+          onClick={() => setOwnershipFilter('others')}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+            ownershipFilter === 'others' 
+              ? 'bg-[#00796B] text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <FiUsers className="w-3 h-3 mr-1" />
+          Other Products ({otherProductsCount})
+        </button>
       </div>
 
       {loading ? (
@@ -220,18 +287,27 @@ const InventoryProductsPage = () => {
               <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
                 <FiPackage className="w-full h-full" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900">No inventory products found</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                {ownershipFilter === 'my' 
+                  ? 'No products found in your inventory'
+                  : ownershipFilter === 'others'
+                  ? 'No other products found'
+                  : 'No inventory products found'
+                }
+              </h3>
               <p className="mt-1 text-gray-500">
-                {searchTerm || filterCategory 
+                {searchTerm || filterCategory || ownershipFilter
                   ? "Try adjusting your search or filter criteria"
                   : "Your inventory is currently empty"}
               </p>
-              <button
-                onClick={() => navigate('/inventory/add')}
-                className="mt-4 inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-              >
-                <FiShoppingCart className="mr-2" /> Add New Products
-              </button>
+              {ownershipFilter !== 'others' && (
+                <button
+                  onClick={() => navigate('/inventory/add')}
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
+                >
+                  <FiShoppingCart className="mr-2" /> Add New Products
+                </button>
+              )}
             </div>
           )}
         </>

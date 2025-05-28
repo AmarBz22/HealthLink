@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import { FiShoppingCart, FiEdit, FiTrash2, FiBox, FiChevronLeft, FiChevronRight, FiEye } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { 
+  FiShoppingCart, 
+  FiEdit, 
+  FiTrash2, 
+  FiBox, 
+  FiChevronLeft, 
+  FiChevronRight, 
+  FiEye,
+  FiStar
+} from 'react-icons/fi';
 
 const ProductCard = ({
   product,
@@ -11,18 +20,72 @@ const ProductCard = ({
   onEditProduct = () => {},
   onPromoteProduct = () => {},
   onAddToCart = () => {},
-  onViewDetails = () => {}, // Added view details handler
+  onRateProduct = () => {}, // Changed from onAddToWishlist to onRateProduct
+  onViewDetails = () => {},
   className = '',
   imageHeight = 'h-48',
-  showInventoryPrice = false, // Prop to control inventory price display
+  showInventoryPrice = false,
+  userRating = 0, // User's rating for this product (0-5)
+  averageRating = 0, // Average rating of the product
+  totalRatings = 0, // Total number of ratings
+  isInCart = false,
+  showTrending = false
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [verifiedOwnership, setVerifiedOwnership] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hoveredRating, setHoveredRating] = useState(0);
 
   // Find primary image or use the first image
   const primaryImage = product.images?.find(img => img.is_primary === 1 || img.is_primary === true);
   const images = product.images || [];
   
+  // Effect to verify ownership when component mounts
+  useEffect(() => {
+    // Only check ownership if isOwner was not explicitly provided
+    if (isOwner === null || isOwner === undefined) {
+      verifyProductOwnership();
+    } else {
+      setVerifiedOwnership(isOwner);
+    }
+  }, [product.product_id]);
+  
+  // Function to verify product ownership via API
+  const verifyProductOwnership = async () => {
+    if (!product.product_id) return;
+    
+    setIsLoading(true);
+    try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setVerifiedOwnership(false);
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:8000/api/products/${product.product_id}/check-owner`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setVerifiedOwnership(data.isOwner);
+      } else {
+        console.error('Failed to verify ownership:', response.statusText);
+        setVerifiedOwnership(false);
+      }
+    } catch (error) {
+      console.error('Error verifying product ownership:', error);
+      setVerifiedOwnership(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getDisplayImage = () => {
     // If product has images
     if (images.length > 0) {
@@ -57,6 +120,51 @@ const ProductCard = ({
     }
   };
 
+  const handleStarClick = (rating) => {
+    onRateProduct(product, rating);
+  };
+
+  const renderStars = (rating, isInteractive = false, size = 16) => {
+    const stars = [];
+    const displayRating = isInteractive ? (hoveredRating || userRating) : rating;
+    
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <button
+          key={i}
+          onClick={() => isInteractive && handleStarClick(i)}
+          onMouseEnter={() => isInteractive && setHoveredRating(i)}
+          onMouseLeave={() => isInteractive && setHoveredRating(0)}
+          className={`${isInteractive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
+          disabled={!isInteractive}
+        >
+          <FiStar
+            size={size}
+            className={`${
+              i <= displayRating
+                ? 'text-yellow-400 fill-current'
+                : 'text-gray-300'
+            } transition-colors`}
+          />
+        </button>
+      );
+    }
+    
+    return stars;
+  };
+
+  // Use verified ownership or prop-passed ownership
+  const displayAsOwner = verifiedOwnership !== null ? verifiedOwnership : isOwner;
+
+  // Loading state while checking ownership
+  if (isLoading) {
+    return (
+      <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className} p-4 flex items-center justify-center`}>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00796B]"></div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${className}`}
@@ -80,10 +188,26 @@ const ProductCard = ({
               }}
             />
             
-            {/* Watermark/Brand Mark */}
+            {/* Brand Mark */}
             <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white px-2 py-1 text-xs font-medium">
-              YourBrand
+              HealthLink
             </div>
+            
+            {/* Trending Badge */}
+            {showTrending && (
+              <div className="absolute top-0 right-0 bg-rose-500 text-white px-2 py-1 text-xs font-medium">
+                Trending
+              </div>
+            )}
+            
+            {/* Average Rating Badge */}
+            {averageRating > 0 && (
+              <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 text-xs rounded-full flex items-center gap-1">
+                <FiStar size={12} className="text-yellow-400 fill-current" />
+                <span>{averageRating.toFixed(1)}</span>
+                {totalRatings > 0 && <span>({totalRatings})</span>}
+              </div>
+            )}
             
             {/* Image carousel navigation - only show when hovering and multiple images exist */}
             {isHovered && images.length > 1 && (
@@ -137,29 +261,53 @@ const ProductCard = ({
         
         <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
         
+        {/* Rating Section - Show for non-owners */}
+        {!displayAsOwner && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex gap-1">
+                {renderStars(averageRating, false, 14)}
+              </div>
+              <span className="text-sm text-gray-600">
+                {averageRating > 0 ? `${averageRating.toFixed(1)}` : 'No ratings'}
+                {totalRatings > 0 && ` (${totalRatings})`}
+              </span>
+            </div>
+            
+            {/* User's rating interface */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500">Your rating:</span>
+              <div className="flex gap-1">
+                {renderStars(userRating, true, 14)}
+              </div>
+              {userRating > 0 && (
+                <span className="text-gray-600">({userRating}/5)</span>
+              )}
+            </div>
+          </div>
+        )}
+        
         {/* Show category if it's the inventory page */}
         {showInventoryPrice && product.category && (
           <p className="text-sm text-gray-500 mb-2">Category: {product.category}</p>
         )}
         
         <div className="flex justify-between items-center">
-          {/* Price section - Inversed order of inventory_price and price */}
+          {/* Price section */}
           <div>
-            {/* Inventory price is now shown first when available */}
             {showInventoryPrice && product.inventory_price && (
               <div className="font-bold text-[#00796B]">
                 Cost: ${parseFloat(product.inventory_price).toFixed(2)}
               </div>
             )}
             
-            {/* Display price is now secondary */}
             <div className={showInventoryPrice ? "text-sm text-gray-500" : "font-bold text-[#00796B]"}>
               ${parseFloat(product.price).toFixed(2)}
               {showInventoryPrice && " (Sale Price)"}
             </div>
           </div>
           
-          {isOwner ? (
+          {displayAsOwner ? (
             <div className="flex space-x-2">
               <button
                 onClick={() => onEditProduct(product)}
@@ -195,13 +343,19 @@ const ProductCard = ({
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => onAddToCart(product)}
-              className="inline-flex items-center p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors"
-              title="Add to cart"
-            >
-              <FiShoppingCart size={18} />
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => onAddToCart(product)}
+                className={`p-2 rounded-full transition-colors ${
+                  isInCart
+                    ? 'bg-[#00796B] text-white hover:bg-[#00695C]'
+                    : 'text-[#00796B] hover:bg-[#E0F2F1]'
+                }`}
+                title={isInCart ? "Already in cart" : "Add to cart"}
+              >
+                <FiShoppingCart size={18} />
+              </button>
+            </div>
           )}
         </div>
         

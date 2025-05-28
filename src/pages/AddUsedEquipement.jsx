@@ -1,16 +1,15 @@
-import React, { useState, useRef } from "react";
-import { FiSave, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
-import { toast } from "react-toastify";
+import React, { useState, useRef ,} from "react";
+import { Save, X, Upload, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const AddProductPage = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+const AddUsedEquipmentPage = () => {
+  // Simulate URL params and navigation for demo
+  const id = "1"; // This would come from useParams() in real app
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  const [productData, setProductData] = useState({
+  const [equipmentData, setEquipmentData] = useState({
     store_id: id,
     product_name: '',
     description: '',
@@ -18,26 +17,34 @@ const AddProductPage = () => {
     inventory_price: '',
     stock: '',
     category: '',
-    type: 'new' // Default to 'new'
+    condition: ''
   });
 
   const [previewImages, setPreviewImages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories = [
-    "Medical Equipment",
-    "Medications",
-    "Dental Supplies",
-    "Lab Supplies",
-    "Health & Wellness",
-    "First Aid & Emergency",
-    "Protective Gear",
-    "Personal Care"
+    "Diagnostic Equipment",
+    "Surgical Instruments", 
+    "Patient Monitoring",
+    "Laboratory Equipment",
+    "Imaging Equipment",
+    "Rehabilitation Equipment",
+    "Dental Equipment",
+    "Emergency Equipment",
+    "Hospital Furniture",
+    "Other Medical Equipment"
   ];
-  
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const conditions = [
+    "Excellent",
+    "Very Good", 
+    "Good",
+    "Fair",
+    "Needs Repair"
+  ];
+
+  const handleSubmit = async () => {
     setIsSubmitting(true);
   
     try {
@@ -45,25 +52,21 @@ const AddProductPage = () => {
       if (!token) throw new Error("Authentication required");
   
       // Validate required fields
-      if (!productData.product_name) throw new Error("Product Name is required");
-      if (!productData.price) throw new Error("Price is required");
-      if (!productData.stock) throw new Error("Stock is required");
-      if (!productData.category) throw new Error("Category is required");
-      
-      // Validate inventory price if type is inventory
-      if (productData.type === 'inventory' && !productData.inventory_price) {
-        throw new Error("Inventory price is required for inventory type");
-      }
+      if (!equipmentData.product_name) throw new Error("Equipment Name is required");
+      if (!equipmentData.price) throw new Error("Price is required");
+      if (!equipmentData.stock) throw new Error("Stock is required");
+      if (!equipmentData.category) throw new Error("Category is required");
+      if (!equipmentData.condition) throw new Error("Condition is required");
   
       const formData = new FormData();
-      formData.append("store_id", productData.store_id);
-      formData.append("product_name", productData.product_name);
-      formData.append("description", productData.description || "");
-      formData.append("price", productData.price);
-      formData.append("inventory_price", productData.inventory_price || "");
-      formData.append("stock", productData.stock);
-      formData.append("category", productData.category);
-      formData.append("type", productData.type);
+      formData.append("store_id", equipmentData.store_id);
+      formData.append("product_name", equipmentData.product_name);
+      formData.append("description", equipmentData.description || "");
+      formData.append("price", equipmentData.price);
+      formData.append("inventory_price", equipmentData.inventory_price || "");
+      formData.append("stock", equipmentData.stock);
+      formData.append("category", equipmentData.category);
+      formData.append("condition", equipmentData.condition);
       
       // Append all selected files
       selectedFiles.forEach(file => {
@@ -74,21 +77,32 @@ const AddProductPage = () => {
         "Authorization": `Bearer ${token}`,
       };
   
-      const response = await axios.post(
-        `http://localhost:8000/api/product`,
-        formData,
-        { headers }
+      const response = await fetch(
+        `http://localhost:8000/api/product/used-equipment`,
+        {
+          method: 'POST',
+          headers,
+          body: formData
+        }
       );
   
-      toast.success("Product created successfully");
-      navigate(`/store/${productData.store_id}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || "Failed to add used equipment");
+      }
+  
+      const result = await response.json();
+      
+      // Success notification (replace with your toast system)
+      console.log("Used equipment added successfully");
+      
+      navigate(`/used-equipment`);
     } catch (error) {
-      console.error("Error creating product:", error);
-      const errorMessage = error.response?.data?.message || 
-                         error.response?.data?.error || 
-                         error.message || 
-                         "Failed to create product";
-      toast.error(errorMessage);
+      console.error("Error adding used equipment:", error);
+      const errorMessage = error.message || "Failed to add used equipment";
+      
+      // Error notification (replace with your toast system)
+      console.error("Error:", errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +110,7 @@ const AddProductPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProductData(prev => ({ ...prev, [name]: value }));
+    setEquipmentData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleImageChange = (e) => {
@@ -105,11 +119,11 @@ const AddProductPage = () => {
     // Validate files
     const validFiles = files.filter(file => {
       if (file.size > 10 * 1024 * 1024) { // 10MB max
-        toast.error(`Image ${file.name} exceeds 10MB limit`);
+        alert(`Image ${file.name} exceeds 10MB limit`);
         return false;
       }
       if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
-        toast.error(`Image ${file.name} must be JPEG, JPG, or PNG`);
+        alert(`Image ${file.name} must be JPEG, JPG, or PNG`);
         return false;
       }
       return true;
@@ -139,27 +153,27 @@ const AddProductPage = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Add New Product</h1>
-          <Link 
-            to={`/store/${id}`}
+          <h1 className="text-2xl font-bold text-gray-800">Add Used Equipment</h1>
+          <button 
+            onClick={() => navigate(`/store/${id}`)}
             className="flex items-center text-gray-600 hover:text-[#00796B] transition-colors"
           >
-            <FiX className="mr-1" /> Cancel
-          </Link>
+            <X className="mr-1" /> Cancel
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h2 className="text-lg font-medium text-[#00796B] border-b pb-2">Product Information</h2>
+              <h2 className="text-lg font-medium text-[#00796B] border-b pb-2">Equipment Information</h2>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name*</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Name*</label>
                 <input
                   type="text"
                   name="product_name"
-                  value={productData.product_name}
+                  value={equipmentData.product_name}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
@@ -170,7 +184,7 @@ const AddProductPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
                 <select
                   name="category"
-                  value={productData.category}
+                  value={equipmentData.category}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
@@ -183,16 +197,18 @@ const AddProductPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Type*</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Condition*</label>
                 <select
-                  name="type"
-                  value={productData.type}
+                  name="condition"
+                  value={equipmentData.condition}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
                 >
-                  <option value="new">New Product</option>
-                  <option value="inventory">Inventory Product</option>
+                  <option value="">Select condition</option>
+                  {conditions.map(condition => (
+                    <option key={condition} value={condition}>{condition}</option>
+                  ))}
                 </select>
               </div>
 
@@ -200,10 +216,11 @@ const AddProductPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   name="description"
-                  value={productData.description}
+                  value={equipmentData.description}
                   onChange={handleChange}
                   rows={3}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                  placeholder="Describe the equipment's features and current state"
                 />
               </div>
             </div>
@@ -219,28 +236,25 @@ const AddProductPage = () => {
                   name="price"
                   min="0.01"
                   step="0.01"
-                  value={productData.price}
+                  value={equipmentData.price}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
                 />
               </div>
 
-              {productData.type === 'inventory' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Inventory Price (DZ)*</label>
-                  <input
-                    type="number"
-                    name="inventory_price"
-                    min="0.01"
-                    step="0.01"
-                    value={productData.inventory_price}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
-                    required={productData.type === 'inventory'}
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Inventory Price (DZ)</label>
+                <input
+                  type="number"
+                  name="inventory_price"
+                  min="0.01"
+                  step="0.01"
+                  value={equipmentData.inventory_price}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity*</label>
@@ -248,7 +262,7 @@ const AddProductPage = () => {
                   type="number"
                   name="stock"
                   min="1"
-                  value={productData.stock}
+                  value={equipmentData.stock}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B]"
                   required
@@ -257,14 +271,14 @@ const AddProductPage = () => {
 
               {/* Image Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Images</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Images</label>
                 {previewImages.length > 0 ? (
                   <div className="space-y-2">
                     {previewImages.map((image, index) => (
                       <div key={index} className="relative">
                         <img
                           src={image.url}
-                          alt={`Product preview ${index}`}
+                          alt={`Equipment preview ${index}`}
                           className="h-40 w-full object-contain rounded-md border border-gray-300"
                         />
                         <button
@@ -272,7 +286,7 @@ const AddProductPage = () => {
                           onClick={() => removeImage(index)}
                           className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm border border-gray-300 hover:bg-gray-50"
                         >
-                          <FiTrash2 className="h-4 w-4 text-gray-500" />
+                          <Trash2 className="h-4 w-4 text-gray-500" />
                         </button>
                       </div>
                     ))}
@@ -280,7 +294,7 @@ const AddProductPage = () => {
                       <div 
                         className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors"
                       >
-                        <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
+                        <Upload className="mx-auto h-8 w-8 text-gray-400" />
                         <p className="mt-1 text-sm text-gray-600">
                           Click to upload more images
                         </p>
@@ -303,7 +317,7 @@ const AddProductPage = () => {
                     <div 
                       className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#00796B] transition-colors"
                     >
-                      <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
+                      <Upload className="mx-auto h-8 w-8 text-gray-400" />
                       <p className="mt-1 text-sm text-gray-600">
                         Click to upload or drag and drop
                       </p>
@@ -327,7 +341,8 @@ const AddProductPage = () => {
 
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={isSubmitting}
               className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -337,19 +352,19 @@ const AddProductPage = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  Adding Equipment...
                 </>
               ) : (
                 <>
-                  <FiSave className="mr-2" /> Save Product
+                  <Save className="mr-2" /> Add Equipment
                 </>
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export default AddProductPage;
+export default AddUsedEquipmentPage;
