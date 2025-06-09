@@ -1,16 +1,16 @@
-import React, { useState, useRef ,} from "react";
+import React, { useState, useRef } from "react";
 import { Save, X, Upload, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const AddUsedEquipmentPage = () => {
-  // Simulate URL params and navigation for demo
-  const id = "1"; // This would come from useParams() in real app
+  // Get the dynamic store ID from URL parameters
+  const { id } = useParams(); // This will extract the store ID from the URL
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState([]);
 
   const [equipmentData, setEquipmentData] = useState({
-    store_id: id,
+    store_id: id, // Now using the dynamic ID from URL params
     product_name: '',
     description: '',
     price: '',

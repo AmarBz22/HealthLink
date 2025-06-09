@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter, FiUser, FiUsers } from 'react-icons/fi';
+import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter, FiUser, FiUsers, FiCamera, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ProductCard from '../components/ProductCard';
-import AddToCartModal from '../components/AddToCartModal'; // Import the modal
-import { useBasket } from '../context/BasketContext'; // Import the basket context
+import AddToCartModal from '../components/AddToCartModal';
+import ImageSearchComponent from '../components/ImageSearch';
+import { useBasket } from '../context/BasketContext';
 
 const InventoryProductsPage = () => {
   const navigate = useNavigate();
@@ -14,11 +15,16 @@ const InventoryProductsPage = () => {
   const [productOwnership, setProductOwnership] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [ownershipFilter, setOwnershipFilter] = useState(''); // New filter for ownership
+  const [ownershipFilter, setOwnershipFilter] = useState('');
   const [deletingProductId, setDeletingProductId] = useState(null);
   const storageUrl = 'http://localhost:8000/storage';
   
-  // Add state for the modal
+  // Image search states
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   
@@ -135,8 +141,60 @@ const InventoryProductsPage = () => {
     setSelectedProduct(null);
   };
 
+  // Image search handlers - MODIFIED to search only within inventory products
+  const handleSearchResults = (results) => {
+    // Filter the search results to only include inventory products
+    const inventorySearchResults = results.filter(result => 
+      inventoryProducts.some(invProduct => invProduct.product_id === result.product_id)
+    );
+    
+    setSearchResults(inventorySearchResults);
+    setHasSearched(true);
+  };
+
+  const handleResetSearch = () => {
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  const handleCloseSearch = () => {
+    setShowImageSearch(false);
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  const resetImageSearch = () => {
+    setShowImageSearch(false);
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  // Helper function to check if current user owns a specific product
+  const isOwnerOfProduct = (productId) => {
+    return productOwnership[productId] || false;
+  };
+
+  // Helper function to get all products owned by current user
+  const getMyProducts = () => {
+    return inventoryProducts.filter(product => 
+      productOwnership[product.product_id] || false
+    );
+  };
+
+  // Helper function to get products owned by others
+  const getOtherProducts = () => {
+    return inventoryProducts.filter(product => 
+      !(productOwnership[product.product_id] || false)
+    );
+  };
+
+  // Determine which products to display
+  const baseProducts = searchResults.length > 0 ? searchResults : inventoryProducts;
+  const isShowingSearchResults = hasSearched && searchResults.length > 0;
+  const isShowingNoResults = hasSearched && searchResults.length === 0;
+
   // Filter products based on search term, category, and ownership
-  const filteredProducts = inventoryProducts.filter(product => {
+  const filteredProducts = baseProducts.filter(product => {
     const matchesSearch = searchTerm === '' || 
       product.product_name.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -151,7 +209,7 @@ const InventoryProductsPage = () => {
     return matchesSearch && matchesCategory && matchesOwnership;
   });
 
-  // Count products for filter badges
+  // Count products for filter badges (only from original inventory)
   const myProductsCount = inventoryProducts.filter(product => 
     productOwnership[product.product_id] || false
   ).length;
@@ -174,89 +232,143 @@ const InventoryProductsPage = () => {
         </button>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-8">
-        <div className="relative flex-grow">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiSearch className="text-gray-400" />
+      {/* Search and Filter Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        {/* Status indicator */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="text-sm text-gray-500">
+            {isShowingSearchResults ? (
+              <span>
+                {searchResults.length} search {searchResults.length === 1 ? 'result' : 'results'} found in inventory
+              </span>
+            ) : isShowingNoResults ? (
+              <span>No similar products found in inventory</span>
+            ) : (
+              <span>
+                {inventoryProducts.length} inventory {inventoryProducts.length === 1 ? 'product' : 'products'} available
+              </span>
+            )}
           </div>
-          <input
-            type="text"
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <div className="relative w-full lg:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiFilter className="text-gray-400" />
+          
+          <div className="flex items-center gap-3">
+            {/* Image Search Button */}
+            {!showImageSearch && (
+              <button
+                onClick={() => setShowImageSearch(true)}
+                className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiCamera className="mr-2" size={16} /> Search Inventory by Image
+              </button>
+            )}
+
+            {/* Reset Search Results */}
+            {(isShowingSearchResults || isShowingNoResults) && (
+              <button
+                onClick={resetImageSearch}
+                className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiX className="mr-2" size={16} /> Show All Inventory
+              </button>
+            )}
           </div>
-          <select
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((category, index) => (
-              <option key={index} value={category}>{category}</option>
-            ))}
-          </select>
         </div>
 
-        {/* Ownership Filter */}
-        <div className="relative w-full lg:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiUser className="text-gray-400" />
+        {/* Traditional Search and Filters */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              placeholder="Search inventory products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <select
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            value={ownershipFilter}
-            onChange={(e) => setOwnershipFilter(e.target.value)}
+          
+          <div className="relative w-full lg:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiFilter className="text-gray-400" />
+            </div>
+            <select
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((category, index) => (
+                <option key={index} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ownership Filter */}
+          <div className="relative w-full lg:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiUser className="text-gray-400" />
+            </div>
+            <select
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              value={ownershipFilter}
+              onChange={(e) => setOwnershipFilter(e.target.value)}
+            >
+              <option value="">All Products</option>
+              <option value="my">My Products ({myProductsCount})</option>
+              <option value="others">Other Products ({otherProductsCount})</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Filter Badges */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setOwnershipFilter('')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              ownershipFilter === '' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            <option value="">All Products</option>
-            <option value="my">My Products ({myProductsCount})</option>
-            <option value="others">Other Products ({otherProductsCount})</option>
-          </select>
+            All ({inventoryProducts.length})
+          </button>
+          <button
+            onClick={() => setOwnershipFilter('my')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+              ownershipFilter === 'my' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <FiUser className="w-3 h-3 mr-1" />
+            My Products ({myProductsCount})
+          </button>
+          <button
+            onClick={() => setOwnershipFilter('others')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+              ownershipFilter === 'others' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <FiUsers className="w-3 h-3 mr-1" />
+            Other Products ({otherProductsCount})
+          </button>
         </div>
       </div>
 
-      {/* Filter Badges */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <button
-          onClick={() => setOwnershipFilter('')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            ownershipFilter === '' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          All ({inventoryProducts.length})
-        </button>
-        <button
-          onClick={() => setOwnershipFilter('my')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
-            ownershipFilter === 'my' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <FiUser className="w-3 h-3 mr-1" />
-          My Products ({myProductsCount})
-        </button>
-        <button
-          onClick={() => setOwnershipFilter('others')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
-            ownershipFilter === 'others' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <FiUsers className="w-3 h-3 mr-1" />
-          Other Products ({otherProductsCount})
-        </button>
-      </div>
+      {/* Image Search Component */}
+      <ImageSearchComponent
+        isVisible={showImageSearch}
+        searchResults={searchResults}
+        hasSearched={hasSearched}
+        onSearchResults={handleSearchResults}
+        onReset={handleResetSearch}
+        onClose={handleCloseSearch}
+        // Pass inventory products to limit search scope
+        limitToProducts={inventoryProducts}
+      />
 
       {loading ? (
         <div className="flex justify-center items-center py-20">
@@ -264,25 +376,28 @@ const InventoryProductsPage = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.product_id}
-                product={product}
-                isOwner={productOwnership[product.product_id] || false}
-                storageUrl={storageUrl}
-                deletingProductId={deletingProductId}
-                onDeleteProduct={handleDeleteProduct}
-                onEditProduct={handleEditProduct}
-                onAddToCart={handleAddToCart}
-                onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
-                showInventoryPrice={true}
-              />
-            ))}
-          </div>
+          {/* Products Grid */}
+          {!isShowingNoResults && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  isOwner={productOwnership[product.product_id] || false}
+                  storageUrl={storageUrl}
+                  deletingProductId={deletingProductId}
+                  onDeleteProduct={handleDeleteProduct}
+                  onEditProduct={handleEditProduct}
+                  onAddToCart={handleAddToCart}
+                  onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
+                  showInventoryPrice={true}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Empty State */}
-          {filteredProducts.length === 0 && (
+          {filteredProducts.length === 0 && !isShowingNoResults && (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm">
               <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
                 <FiPackage className="w-full h-full" />

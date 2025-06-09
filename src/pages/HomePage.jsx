@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fi';
 import ProductCard from '../components/ProductCard';
 import AddToCartModal from '../components/AddToCartModal';
-import StoreCard from '../components/StoreCard'; // Import the StoreCard component
+import StoreCard from '../components/StoreCard';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -24,10 +24,9 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [wishlistItems, setWishlistItems] = useState([]);
+
   const [cartItems, setCartItems] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
-  // Add new state for cart modal
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   
@@ -35,7 +34,7 @@ const HomePage = () => {
   useEffect(() => {
     const checkLoginStatus = () => {
       const token = localStorage.getItem('authToken');
-      const userId = localStorage.getItem('userId'); // Assuming userId is stored in localStorage
+      const userId = localStorage.getItem('userId');
       setIsLoggedIn(!!token);
       setCurrentUserId(userId ? parseInt(userId) : null);
     };
@@ -43,19 +42,54 @@ const HomePage = () => {
     checkLoginStatus();
   }, []);
   
+  // Helper function to safely parse JSON response
+  const safeJsonParse = async (response) => {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Failed to parse JSON response:', text);
+      throw new Error(`Invalid JSON response: ${text.substring(0, 100)}...`);
+    }
+  };
+  
   // Fetch all data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch products from API
-        const productsResponse = await fetch('http://localhost:8000/api/products');
-        const productsData = await productsResponse.json();
+        // Fetch products from API with better error handling
+        let productsData = [];
+        try {
+          const productsResponse = await fetch('http://localhost:8000/api/products');
+          
+          if (!productsResponse.ok) {
+            throw new Error(`Products API returned ${productsResponse.status}: ${productsResponse.statusText}`);
+          }
+          
+          productsData = await safeJsonParse(productsResponse);
+          console.log('Successfully fetched products:', productsData.length);
+        } catch (error) {
+          console.error('Error fetching products:', error);
+          // Continue with empty array - will fall back to mock data
+        }
         
-        // Fetch stores from API
-        const storesResponse = await fetch('http://localhost:8000/api/stores');
-        const storesData = await storesResponse.json();
+        // Fetch stores from API with better error handling
+        let storesData = [];
+        try {
+          const storesResponse = await fetch('http://localhost:8000/api/stores');
+          
+          if (!storesResponse.ok) {
+            throw new Error(`Stores API returned ${storesResponse.status}: ${storesResponse.statusText}`);
+          }
+          
+          storesData = await safeJsonParse(storesResponse);
+          console.log('Successfully fetched stores:', storesData.length);
+        } catch (error) {
+          console.error('Error fetching stores:', error);
+          // Continue with empty array - will fall back to mock data
+        }
         
-        // Mock categories only
+        // Mock categories (unchanged)
         const mockCategories = [
           {
             id: 1,
@@ -95,55 +129,38 @@ const HomePage = () => {
           }
         ];
 
-        // Create a subset of trending products (different from featured)
-        const shuffledProducts = [...productsData].sort(() => 0.5 - Math.random());
-        const trendingProductsList = shuffledProducts.slice(0, 6);
-        
-        // If user is logged in, fetch wishlist and cart
-        if (isLoggedIn) {
-          try {
-            // Simulate fetching wishlist and cart items (replace with actual API calls)
-            const wishlistResponse = await fetch('http://localhost:8000/api/wishlist', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-              }
-            });
-            const wishlistData = await wishlistResponse.json();
-            setWishlistItems(wishlistData);
-            
-            const cartResponse = await fetch('http://localhost:8000/api/cart', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-              }
-            });
-            const cartData = await cartResponse.json();
-            setCartItems(cartData);
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-            // Fallback to empty arrays if API calls fail
-            setWishlistItems([]);
-            setCartItems([]);
-          }
+        // Create trending products only if we have products data
+        let trendingProductsList = [];
+        if (productsData.length > 0) {
+          const shuffledProducts = [...productsData].sort(() => 0.5 - Math.random());
+          trendingProductsList = shuffledProducts.slice(0, 6);
         }
         
+        // Set state with fetched or empty data
         setFeaturedProducts(productsData);
         setTrendingProducts(trendingProductsList);
-        setTopStores(storesData); // Use API data directly
+        setTopStores(storesData);
         setCategories(mockCategories);
         setLoading(false);
+        
+        // If no data was fetched, show a message
+        if (productsData.length === 0 && storesData.length === 0) {
+          console.warn('No data could be fetched from APIs. Please check your backend server.');
+        }
+        
       } catch (error) {
-        console.error('Error fetching data:', error);
-        // If API fails, fall back to mock data
+        console.error('Error in fetchData:', error);
         fallbackToMockData();
       }
     };
     
     fetchData();
-  }, [isLoggedIn]);
+  }, []);
 
   // Fallback function to use mock data if API fails
   const fallbackToMockData = () => {
-    // Mock categories only
+    console.log('Falling back to mock data');
+    
     const mockCategories = [
       {
         id: 1,
@@ -184,7 +201,7 @@ const HomePage = () => {
     ];
     
     setCategories(mockCategories);
-    setTopStores([]); // Empty stores if API fails
+    setTopStores([]);
     setFeaturedProducts([]);
     setTrendingProducts([]);
     setLoading(false);
@@ -205,53 +222,39 @@ const HomePage = () => {
       return;
     }
     
-    // Open the cart modal with the selected product
     setSelectedProduct(product);
     setCartModalOpen(true);
   };
   
   const handleAddToBasket = (product) => {
-    // Add to cart functionality
     console.log('Adding to basket:', product);
-    
-    // In a real implementation, you would call an API endpoint
-    // For demo purposes, we'll update the local state
-    setCartItems(prev => [...prev, product]);
-    
-    // Show success notification (you would implement this)
-    // showNotification('Product added to cart successfully');
+    // Add to local cart state instead of API
+    setCartItems(prev => {
+      const existingItem = prev.find(item => item.product_id === product.product_id);
+      if (existingItem) {
+        return prev.map(item => 
+          item.product_id === product.product_id 
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
   };
   
   const handleOrderNow = (product) => {
     navigate('/checkout', { state: { products: [product] }});
   };
   
-  const handleAddToWishlist = (product) => {
-    if (!isLoggedIn) {
-      navigate('/login', { state: { redirectAfter: '/home' } });
-      return;
-    }
-    
-    // Add to wishlist functionality
-    console.log('Adding to wishlist:', product);
-    
-    // In a real implementation, you would call an API endpoint
-    // For demo purposes, we'll update the local state
-    setWishlistItems(prev => [...prev, product]);
-    
-    // Show success notification (you would implement this)
-    // showNotification('Product added to wishlist successfully');
-  };
+
   
   const handleViewDetails = (product) => {
     navigate(`/products/${product.product_id}`);
   };
 
   const handleStoreDeleteSuccess = (deletedStoreId) => {
-    // Remove the deleted store from the topStores state
     setTopStores(prev => prev.filter(store => store.id !== deletedStoreId));
   };
-  
 
   if (loading) {
     return (
@@ -361,27 +364,30 @@ const HomePage = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {featuredProducts.slice(0, 8).map((product) => (
-              <ProductCard
-                key={product.product_id}
-                product={product}
-                isOwner={false}
-                storageUrl="http://localhost:8000/storage"
-                onAddToCart={() => handleAddToCart(product)}
-                onAddToWishlist={() => handleAddToWishlist(product)}
-                onViewDetails={() => handleViewDetails(product)}
-                className="h-full"
-                imageHeight="h-48"
-                isInWishlist={wishlistItems.some(item => item.product_id === product.product_id)}
-                isInCart={cartItems.some(item => item.product_id === product.product_id)}
-              />
-            ))}
-          </div>
+          {featuredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {featuredProducts.slice(0, 8).map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  storageUrl="http://localhost:8000/storage"
+                  onAddToCart={() => handleAddToCart(product)}
+                  onViewDetails={() => handleViewDetails(product)}
+                  className="h-full"
+                  imageHeight="h-48"
+                  isInCart={cartItems.some(item => item.product_id === product.product_id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No products available at the moment. Please check your backend server.</p>
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Top Stores - Using StoreCard Component */}
+      {/* Top Stores */}
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-8">
@@ -396,24 +402,30 @@ const HomePage = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {topStores.slice(0, 8).map((store) => (
-              <StoreCard
-                key={store.id}
-                store={store}
-                showDelete={false} // Don't show delete option on homepage
-                currentUserId={currentUserId}
-                onDeleteSuccess={handleStoreDeleteSuccess}
-              />
-            ))}
-          </div>
+          {topStores.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {topStores.slice(0, 8).map((store) => (
+                <StoreCard
+                  key={store.id}
+                  store={store}
+                  showDelete={false}
+                  currentUserId={currentUserId}
+                  onDeleteSuccess={handleStoreDeleteSuccess}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No stores available at the moment. Please check your backend server.</p>
+            </div>
+          )}
         </div>
       </div>
       
       {/* Trending Products */}
       <div className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-centers mb-8">
+          <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900">
               Trending Now
             </h2>
@@ -425,24 +437,27 @@ const HomePage = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-            {trendingProducts.slice(0, 6).map((product) => (
-              <ProductCard
-                key={product.product_id}
-                product={product}
-                isOwner={false}
-                storageUrl="http://localhost:8000/storage"
-                onAddToCart={() => handleAddToCart(product)}
-                onAddToWishlist={() => handleAddToWishlist(product)}
-                onViewDetails={() => handleViewDetails(product)}
-                className="h-full"
-                imageHeight="h-48"
-                isInWishlist={wishlistItems.some(item => item.product_id === product.product_id)}
-                isInCart={cartItems.some(item => item.product_id === product.product_id)}
-                showTrending={true}
-              />
-            ))}
-          </div>
+          {trendingProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+              {trendingProducts.slice(0, 6).map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  storageUrl="http://localhost:8000/storage"
+                  onAddToCart={() => handleAddToCart(product)}
+                  onViewDetails={() => handleViewDetails(product)}
+                  className="h-full"
+                  imageHeight="h-48"
+                  isInCart={cartItems.some(item => item.product_id === product.product_id)}
+                  showTrending={true}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No trending products available at the moment.</p>
+            </div>
+          )}
         </div>
       </div>
 

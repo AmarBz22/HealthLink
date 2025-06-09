@@ -17,15 +17,20 @@ const StoreCard = ({
   const [loadingOwnerName, setLoadingOwnerName] = useState(true);
   
   const isOwner = currentUserId ? store.owner_id === currentUserId : store.isOwner;
+  
+  // Get the store name - handle both store_name and name properties
+  const storeName = store.store_name || store.name || 'Unnamed Store';
+
+  // Check if user is authenticated
+  const isAuthenticated = () => {
+    const token = localStorage.getItem("authToken");
+    return !!token;
+  };
 
   useEffect(() => {
     const fetchOwnerName = async () => {
-      console.log("Store object:", store); // Debug log
-      console.log("Owner ID:", store.owner_id); // Debug log
-      
       // If store already has owner name, use it
       if (store.owner_name) {
-        console.log("Using existing owner name:", store.owner_name);
         setOwnerName(store.owner_name);
         setLoadingOwnerName(false);
         return;
@@ -33,17 +38,22 @@ const StoreCard = ({
 
       // If it's the current user's store, show "You"
       if (isOwner) {
-        console.log("This is owner's store, showing 'You'");
         setOwnerName("You");
         setLoadingOwnerName(false);
         return;
       }
 
+      // If user is not authenticated, don't try to fetch owner name - just use default
+      if (!isAuthenticated()) {
+        setOwnerName("Store Owner");
+        setLoadingOwnerName(false);
+        return;
+      }
+
+      // Only fetch owner name if user is authenticated
       try {
         setLoadingOwnerName(true);
         const token = localStorage.getItem("authToken");
-        console.log("Token exists:", !!token); // Debug log
-        console.log("Fetching owner data for ID:", store.owner_id); // Debug log
         
         // Try different possible API endpoints
         let response;
@@ -51,29 +61,37 @@ const StoreCard = ({
         
         try {
           response = await axios.get(apiUrl, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
           });
         } catch (firstError) {
-          console.log("First API attempt failed, trying alternative endpoint...");
           // Try alternative endpoint
           apiUrl = `http://localhost:8000/api/users/${store.owner_id}`;
           response = await axios.get(apiUrl, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
           });
         }
         
-        console.log("Owner API response:", response.data); // Debug log
-        console.log("Response status:", response.status); // Debug log
-        
-        const ownerDisplayName = response.data.name || response.data.username || response.data.first_name || response.data.email || "Owner";
-        console.log("Setting owner name to:", ownerDisplayName);
+        const ownerDisplayName = response.data.name || response.data.username || response.data.first_name || response.data.email || "Store Owner";
         setOwnerName(ownerDisplayName);
       } catch (error) {
-        console.error("Failed to fetch owner name:", error);
-        console.error("Error status:", error.response?.status);
-        console.error("Error response:", error.response?.data);
-        console.error("Full error:", error);
-        setOwnerName("Owner");
+        // Handle different types of errors gracefully
+        if (error.response?.status === 401) {
+          // Authentication failed - token may be invalid or expired
+          localStorage.removeItem('authToken');
+          setOwnerName("Store Owner");
+        } else if (error.response?.status === 404) {
+          setOwnerName("Store Owner");
+        } else if (error.response?.status === 403) {
+          setOwnerName("Store Owner");
+        } else {
+          setOwnerName("Store Owner");
+        }
       } finally {
         setLoadingOwnerName(false);
       }
@@ -82,8 +100,7 @@ const StoreCard = ({
     if (store && store.owner_id) {
       fetchOwnerName();
     } else {
-      console.log("No owner_id found, setting default");
-      setOwnerName("Owner");
+      setOwnerName("Store Owner");
       setLoadingOwnerName(false);
     }
   }, [store.owner_id, store.owner_name, isOwner, store]);
@@ -122,20 +139,20 @@ const StoreCard = ({
             {store.logo_path ? (
               <img 
                 src={`http://localhost:8000/storage/${store.logo_path}`} 
-                alt={`${store.store_name} logo`} 
+                alt={`${storeName} logo`} 
                 className="w-14 h-14 object-cover rounded-full mr-3 border-2 border-white shadow-sm"
                 onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(store.store_name)}&background=00796B&color=fff`;
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(storeName)}&background=00796B&color=fff`;
                 }}
               />
             ) : (
               <div className="w-14 h-14 rounded-full mr-3 bg-[#00796B] text-white flex items-center justify-center font-bold border-2 border-white shadow-sm">
-                {store.store_name?.charAt(0).toUpperCase() || "M"}
+                {storeName?.charAt(0).toUpperCase() || "M"}
               </div>
             )}
             <div className="flex-1">
               <h3 className={`font-bold text-lg ${isOwner ? 'text-white' : 'text-gray-900'}`}>
-                {store.store_name}
+                {storeName}
                 {isOwner && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white text-[#00796B]">
                     <FiStar className="mr-1" /> Your Store
@@ -148,20 +165,21 @@ const StoreCard = ({
                   {store.address ? `${store.address.split(',')[0]}` : 'Location not provided'}
                 </span>
               </div>
-              {/* Owner name in header for better visibility */}
-              <div className="flex items-center mt-1">
-                <FiUser className={`mr-1 text-xs ${isOwner ? 'text-white' : 'text-[#00796B]'}`} />
-                <span className={`text-xs ${isOwner ? 'text-white' : 'text-gray-600'}`}>
-                  {loadingOwnerName ? 'Loading...' : `Owner: ${ownerName}`}
-                </span>
-              </div>
+              {/* Owner name in header - only show if authenticated or if it's the owner */}
+              {(isAuthenticated() || isOwner) && (
+                <div className="flex items-center mt-1">
+                  <FiUser className={`mr-1 text-xs ${isOwner ? 'text-white' : 'text-[#00796B]'}`} />
+                  <span className={`text-xs ${isOwner ? 'text-white' : 'text-gray-600'}`}>
+                    {loadingOwnerName ? 'Loading...' : `Owner: ${ownerName}`}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Body */}
         <div className="p-5">
-
           {/* Specialties */}
           {Array.isArray(store.specialties) && store.specialties.length > 0 && (
             <div className="mb-4">
@@ -190,22 +208,25 @@ const StoreCard = ({
                 <p className="font-medium">{store.phone || 'Not provided'}</p>
               </div>
             </div>
-            <div className="flex items-center text-gray-700">
-              <div className="p-2 bg-[#E0F2F1] rounded-full mr-3">
-                <FiUser className="text-[#00796B]" />
+            
+            {/* Only show owner info if authenticated or if it's the owner */}
+            {(isAuthenticated() || isOwner) && (
+              <div className="flex items-center text-gray-700">
+                <div className="p-2 bg-[#E0F2F1] rounded-full mr-3">
+                  <FiUser className="text-[#00796B]" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Store Owner</p>
+                  <p className="font-medium">
+                    {loadingOwnerName ? (
+                      <span className="animate-pulse bg-gray-200 h-4 w-20 rounded"></span>
+                    ) : (
+                      ownerName
+                    )}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500">Store Owner</p>
-                <p className="font-medium">
-                  {loadingOwnerName ? (
-                    <span className="animate-pulse bg-gray-200 h-4 w-20 rounded"></span>
-                  ) : (
-                    ownerName
-                  )}
-                </p>
-                
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -242,7 +263,7 @@ const StoreCard = ({
       {showDeleteModal && (
         <DeleteStoreModal
           storeId={store.id}
-          storeName={store.store_name}
+          storeName={storeName}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={handleDeleteConfirm}
           isDeleting={deleting}

@@ -25,6 +25,26 @@ const DashboardPage = () => {
     products: []
   });
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const getProductDisplayImage = (product, storageUrl = '') => {
+    // Handle new image structure (array of images)
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      // Find primary image or use the first image
+      const primaryImage = product.images.find(img => img.is_primary === 1 || img.is_primary === true);
+      const selectedImage = primaryImage || product.images[0];
+      
+      // Return the image path (assuming it's already a full URL or relative path)
+      return selectedImage.image_path;
+    }
+    
+    // Legacy support for products with direct image property
+    if (product.image) {
+      return product.image.startsWith('http') ? product.image : `${storageUrl}/${product.image}`;
+    }
+    
+    // No image available
+    return null;
+  };
 
   // Helper function to make API calls with better error handling
   const fetchWithErrorHandling = async (url, headers) => {
@@ -427,87 +447,98 @@ const DashboardPage = () => {
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dashboardData.products.length > 0 ? (
-                        filterData(dashboardData.products, 'product_name').slice(0, 6).map((product, index) => (
-                          <tr key={product.id || index} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
-                                  {product.image ? (
-                                    <img 
-                                      src={product.image} 
-                                      alt={product.product_name} 
-                                      className="h-10 w-10 rounded-lg object-cover"
-                                      onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.innerText = product.product_name?.charAt(0) || 'P';
-                                      }}
-                                    />
-                                  ) : (
-                                    <span>{product.product_name?.charAt(0) || 'P'}</span>
-                                  )}
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {product.product_name}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    ID: {product.id}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">${product.price || '0.00'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {product.category || 'Uncategorized'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                product.in_stock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {product.in_stock ? 'In Stock' : 'Out of Stock'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
-                            {isSupplier ? 'No products found. Add your first product!' : 'No products found'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  
-                  {dashboardData.products.length > 0 && filterData(dashboardData.products, 'product_name').length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 text-sm">No matching products found</p>
-                    </div>
-                  )}
+  <table className="min-w-full divide-y divide-gray-200">
+    <thead className="bg-gray-50">
+      <tr>
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Product
+        </th>
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Price
+        </th>
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Category
+        </th>
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Stock
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+  {dashboardData.products.length > 0 ? (
+    filterData(dashboardData.products, 'product_name').slice(0, 6).map((product, index) => {
+      const displayImage = getProductDisplayImage(product);
+      
+      return (
+        <tr key={product.id || index} className="hover:bg-gray-50">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center">
+              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 overflow-hidden">
+                {displayImage ? (
+                  <img 
+                    src={displayImage} 
+                    alt={product.product_name} 
+                    className="h-10 w-10 rounded-lg object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      // Replace with placeholder or fallback to text
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span 
+                  className={`h-full w-full flex items-center justify-center text-sm font-medium ${displayImage ? 'hidden' : 'flex'}`}
+                >
+                  {product.product_name?.charAt(0) || 'P'}
+                </span>
+              </div>
+              <div className="ml-4">
+                <div className="text-sm font-medium text-gray-900">
+                  {product.product_name}
                 </div>
+                
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm text-gray-900">${product.price || '0.00'}</div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {product.category || 'Uncategorized'}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              product.stock > 0 
+                ? product.stock > 10 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-yellow-100 text-yellow-800'
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {product.stock || 0} units
+            </span>
+          </td>
+        </tr>
+      );
+    })
+  ) : (
+    <tr>
+      <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+        {isSupplier ? 'No products found. Add your first product!' : 'No products found'}
+      </td>
+    </tr>
+  )}
+</tbody>
+  </table>
+  
+  {dashboardData.products.length > 0 && filterData(dashboardData.products, 'product_name').length === 0 && (
+    <div className="text-center py-8">
+      <p className="text-gray-500 text-sm">No matching products found</p>
+    </div>
+  )}
+</div>
               </div>
             </div>
           </div>
@@ -520,7 +551,7 @@ const DashboardPage = () => {
                   <FiUsers className="mr-2 text-[#00796B]" /> All Users
                 </h2>
                 <button 
-                  onClick={() => navigate('/admin/users')}
+                  onClick={() => navigate('/users')}
                   className="text-sm text-[#00796B] hover:underline"
                 >
                   Manage Users
@@ -546,9 +577,7 @@ const DashboardPage = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Location
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -608,14 +637,7 @@ const DashboardPage = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {user.wilaya || 'N/A'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button 
-                                onClick={() => navigate(`/admin/users/${user.id}`)}
-                                className="text-[#00796B] hover:text-[#00695C]"
-                              >
-                                Edit
-                              </button>
-                            </td>
+                           
                           </tr>
                         ))
                     ) : (

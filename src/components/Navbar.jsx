@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell, LayoutDashboard, ShoppingCart, Users, Package, Tag, FileText, Home, Wrench } from "lucide-react";
+import { Bell, LayoutDashboard, ShoppingCart, Users, Package, Tag, FileText, Home, Wrench, Monitor } from "lucide-react";
 import axios from "axios";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { FiUser } from "react-icons/fi";
+import logo from "../assets/logo1.png"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -97,11 +98,11 @@ const Navbar = () => {
   // Show a minimal loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="w-full flex items-center justify-between px-6 py-3 bg-white shadow-sm">
+      <div className="w-full flex items-center justify-between px-6 py-3 bg-white shadow-sm min-h-[60px]">
         {/* Left: Logo */}
         <div className="flex items-center">
           <div className="w-8 h-8 bg-[#00796B] rounded-sm flex items-center justify-center">
-            <span className="text-white font-bold text-lg">▢</span>
+            <img src={logo} alt="" className="w-full h-full object-contain" />            
           </div>
         </div>
         
@@ -147,13 +148,34 @@ const Navbar = () => {
           </Link>
         )}
         
-        {/* Store - For all logged in users */}
-        <Link to="/store" className="flex items-center space-x-1 group">
+        {/* Store - For all logged in users, Admin goes to admin-stores */}
+        <Link 
+          to={userRole === 'Admin' ? "/admin-stores" : "/store"} 
+          className="flex items-center space-x-1 group"
+        >
           <ShoppingCart 
-            className={`w-5 h-5 ${isActive('/store') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
+            className={`w-5 h-5 ${
+              (isActive('/store') || isActive('/admin-stores')) 
+                ? 'text-[#00796B]' 
+                : 'text-gray-400 group-hover:text-[#00796B]'
+            }`}
           />
-          <span className={`text-sm ${isActive('/store') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
+          <span className={`text-sm ${
+            (isActive('/store') || isActive('/admin-stores')) 
+              ? 'text-[#00796B] font-medium' 
+              : 'text-gray-500 group-hover:text-[#00796B]'
+          }`}>
             Store
+          </span>
+        </Link>
+
+        {/* Digital Products - For all logged in users */}
+        <Link to="/digital-products" className="flex items-center space-x-1 group">
+          <Monitor 
+            className={`w-5 h-5 ${isActive('/digital-products') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
+          />
+          <span className={`text-sm ${isActive('/digital-products') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
+            Digital Products
           </span>
         </Link>
         
@@ -178,16 +200,34 @@ const Navbar = () => {
           </span>
         </Link>
         
-        {/* Inventory - For all logged in users */}
-        <Link to="/inventory-products" className="flex items-center space-x-1 group">
-          <div className="relative">
-            <Package 
-              className={`w-5 h-5 ${isActive('/inventory-products') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
+        {/* Products/Inventory - Admin goes to admin-products, others go to inventory-products */}
+        <Link 
+          to={userRole === 'Admin' ? "/admin-products" : "/inventory-products"} 
+          className="flex items-center space-x-1 group"
+        >
+          {userRole === 'Admin' ? (
+            <Tag 
+              className={`w-5 h-5 ${
+                isActive('/admin-products') 
+                  ? 'text-[#00796B]' 
+                  : 'text-gray-400 group-hover:text-[#00796B]'
+              }`}
             />
-            <Tag className="absolute -top-1 -right-2 w-3 h-3 text-[#00796B]" />
-          </div>
-          <span className={`text-sm ${isActive('/inventory-products') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
-            Inventory
+          ) : (
+            <Package 
+              className={`w-5 h-5 ${
+                isActive('/inventory-products') 
+                  ? 'text-[#00796B]' 
+                  : 'text-gray-400 group-hover:text-[#00796B]'
+              }`}
+            />
+          )}
+          <span className={`text-sm ${
+            (isActive('/inventory-products') || isActive('/admin-products')) 
+              ? 'text-[#00796B] font-medium' 
+              : 'text-gray-500 group-hover:text-[#00796B]'
+          }`}>
+            {userRole === 'Admin' ? 'Products' : 'Inventory'}
           </span>
         </Link>
         
@@ -204,7 +244,7 @@ const Navbar = () => {
         )}
         
         {/* Used Equipment - Only for Doctor */}
-        {userRole === 'Doctor' && (
+        {['Doctor', 'Dentist'].includes(userRole) && (
           <Link to="/used-equipment" className="flex items-center space-x-1 group">
             <Wrench 
               className={`w-5 h-5 ${isActive('/used-equipment') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
@@ -219,12 +259,12 @@ const Navbar = () => {
   };
 
   return (
-    <div className="w-full flex items-center justify-between px-6 py-3 bg-white shadow-sm">
+    <div className="w-full flex items-center justify-between px-6 py-3 bg-white shadow-sm min-h-[60px]">
       {/* Left: Logo */}
       <div className="flex items-center">
         {/* Logo */}
-        <div className="w-8 h-8 bg-[#00796B] rounded-sm flex items-center justify-center">
-          <span className="text-white font-bold text-lg">▢</span>
+        <div className="w-20 h-20 rounded-sm flex items-center justify-center">
+          <img src={logo} alt="" className="w-full h-full object-contain" />            
         </div>
       </div>
 

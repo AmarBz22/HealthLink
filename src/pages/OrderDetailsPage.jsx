@@ -7,33 +7,55 @@ import { toast } from 'react-toastify';
 import ApproveOrderModal from '../components/ApproveOrderModal';
 import DeleteOrderModal from '../components/DeleteOrderModal';
 
-const OrderStatusStep = ({ title, description, isActive, isCompleted }) => {
+// Enhanced OrderStatusStep component with dynamic styling
+const OrderStatusStep = ({ title, description, isActive, isCompleted, isError, isSuccess, isLast }) => {
+  const getStepColor = () => {
+    if (isError) return 'bg-red-500 text-white border-red-500';
+    if (isSuccess) return 'bg-blue-500 text-white border-blue-500';
+    if (isCompleted) return 'bg-green-500 text-white border-green-500';
+    if (isActive) return 'bg-[#00796B] text-white border-[#00796B]';
+    return 'bg-gray-200 text-gray-500 border-gray-200';
+  };
+
+  const getLineColor = () => {
+    if (isCompleted || isActive) return 'bg-[#00796B]';
+    if (isError) return 'bg-red-300';
+    return 'bg-gray-200';
+  };
+
+  const getTextColor = () => {
+    if (isError) return 'text-red-700';
+    if (isActive || isCompleted) return 'text-gray-900';
+    return 'text-gray-500';
+  };
+
   return (
     <div className={`flex items-start ${isActive ? 'opacity-100' : 'opacity-60'}`}>
       <div className="flex flex-col items-center mr-4">
-        <div 
-          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isCompleted 
-              ? 'bg-green-500 text-white' 
-              : isActive 
-                ? 'bg-[#00796B] text-white' 
-                : 'bg-gray-200 text-gray-500'
-          }`}
-        >
-          {isCompleted ? (
-            <FiCheckCircle size={16} />
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${getStepColor()}`}>
+          {isCompleted || isError || isSuccess ? (
+            <FiCheckCircle size={18} />
           ) : isActive ? (
-            <div className="w-3 h-3 bg-white rounded-full"></div>
+            <div className="w-4 h-4 bg-white rounded-full"></div>
           ) : (
-            ''
+            <div className="w-4 h-4 rounded-full border-2 border-current"></div>
           )}
         </div>
-        {/* Vertical line connecting steps */}
-        <div className="w-px h-16 bg-gray-200"></div>
+        {!isLast && (
+          <div className={`w-0.5 h-20 mt-2 ${getLineColor()}`}></div>
+        )}
       </div>
-      <div>
-        <h3 className="font-medium text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-500">{description}</p>
+      <div className="flex-1 pb-8">
+        <h3 className={`font-semibold text-lg ${getTextColor()}`}>{title}</h3>
+        <p className={`text-sm mt-1 ${isActive ? 'text-gray-600' : 'text-gray-500'}`}>
+          {description}
+        </p>
+        {/* Show completion time for completed steps */}
+        {isCompleted && !isError && (
+          <p className="text-xs text-gray-400 mt-2">
+            ✓ Step completed
+          </p>
+        )}
       </div>
     </div>
   );
@@ -158,6 +180,81 @@ const OrderDetailPage = () => {
     fetchOrderDetails();
   }, [id, navigate]);
 
+  // Helper function to get dynamic order status steps
+  const getOrderStatusSteps = (order, currentStatus) => {
+    const steps = [];
+    
+    // Always show "Order Placed" as the first step
+    steps.push({
+      key: 'placed',
+      title: 'Order Placed',
+      description: `Your order was placed on ${formatDate(order.order_date)}`,
+      isActive: true,
+      isCompleted: true,
+      alwaysShow: true
+    });
+
+    // Dynamically add steps based on order status and type
+    const status = currentStatus.toLowerCase();
+    
+    // Add Processing step (skip if cancelled immediately)
+    if (status !== 'cancelled') {
+      steps.push({
+        key: 'processing',
+        title: 'Processing',
+        description: status === 'processing' ? 'Your order is currently being prepared' : 'Your order is being prepared',
+        isActive: ['processing', 'shipped', 'delivered', 'completed'].includes(status),
+        isCompleted: ['shipped', 'delivered', 'completed'].includes(status)
+      });
+    }
+
+    // Add Shipped step (only for physical products)
+    if (order.order_type !== 'digital' && status !== 'cancelled') {
+      const shippedDesc = order.tracking_number 
+        ? `Tracking: ${order.tracking_number}` 
+        : 'Your order is on the way';
+      
+      steps.push({
+        key: 'shipped',
+        title: 'Shipped',
+        description: shippedDesc,
+        isActive: ['shipped', 'delivered', 'completed'].includes(status),
+        isCompleted: ['delivered', 'completed'].includes(status)
+      });
+    }
+
+    // Add Delivered/Completed step
+    if (status !== 'cancelled') {
+      const deliveryDesc = order.estimated_delivery 
+        ? `Estimated delivery on ${formatDate(order.estimated_delivery)}` 
+        : order.delivery_address
+          ? `Delivering to: ${order.delivery_address.substring(0, 40)}${order.delivery_address.length > 40 ? '...' : ''}`
+          : 'Your order will be delivered soon';
+      
+      steps.push({
+        key: 'delivered',
+        title: order.order_type === 'pickup' ? 'Ready for Pickup' : 'Delivered',
+        description: deliveryDesc,
+        isActive: ['delivered', 'completed'].includes(status),
+        isCompleted: ['completed'].includes(status)
+      });
+    }
+
+    // Handle cancelled orders
+    if (status === 'cancelled') {
+      steps.push({
+        key: 'cancelled',
+        title: 'Order Cancelled',
+        description: order.cancellation_reason || 'This order has been cancelled',
+        isActive: true,
+        isCompleted: true,
+        isError: true
+      });
+    }
+
+    return steps;
+  };
+
   // Helper function to format full name from first and last name
   const formatFullName = (firstName, lastName) => {
     if (firstName && lastName) {
@@ -210,32 +307,6 @@ const OrderDetailPage = () => {
     return statusMap[status] || status;
   };
 
-  // Get payment status display with proper coloring
-  const getPaymentStatusDisplay = (status) => {
-    const paymentStatusMap = {
-      'paid': 'Paid',
-      'pending': 'Pending',
-      'failed': 'Failed',
-      'refunded': 'Refunded'
-    };
-    return paymentStatusMap[status] || status;
-  };
-
-  // Get payment status color class
-  const getPaymentStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'paid':
-        return 'bg-green-50 text-green-700';
-      case 'pending':
-        return 'bg-yellow-50 text-yellow-700';
-      case 'failed':
-        return 'bg-red-50 text-red-700';
-      case 'refunded':
-        return 'bg-blue-50 text-blue-700';
-      default:
-        return 'bg-gray-50 text-gray-700';
-    }
-  };
 
   // Get order status color class
   const getOrderStatusColor = (status) => {
@@ -382,10 +453,7 @@ const OrderDetailPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="flex flex-col items-center">
-          <FiLoader className="animate-spin text-[#00796B] text-4xl mb-4" />
-          <p className="text-gray-600">Loading order details...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
       </div>
     );
   }
@@ -455,9 +523,7 @@ const OrderDetailPage = () => {
               <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${getOrderStatusColor(orderStatus)}`}>
                 {getOrderStatusDisplay(orderStatus)}
               </div>
-              <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${getPaymentStatusColor(order.payment_status)}`}>
-                {getPaymentStatusDisplay(order.payment_status)}
-              </div>
+              
             </div>
           </div>
 
@@ -554,36 +620,34 @@ const OrderDetailPage = () => {
             </InfoCard>
           </div>
 
-          {/* Order Status Timeline - Fixed to match actual order status */}
+          {/* Dynamic Order Status Timeline */}
           <div className="mb-8">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Order Status</h2>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <div className="space-y-0">
-                <OrderStatusStep
-                  title="Order Placed"
-                  description={`Your order was placed on ${formatDate(order.order_date)}`}
-                  isActive={true}
-                  isCompleted={true}
-                />
-                <OrderStatusStep
-                  title="Processing"
-                  description="Your order is being prepared"
-                  isActive={['processing', 'shipped', 'delivered', 'completed'].includes(orderStatus)}
-                  isCompleted={['shipped', 'delivered', 'completed'].includes(orderStatus)}
-                />
-                <OrderStatusStep
-                  title="Shipped"
-                  description="Your order is on the way"
-                  isActive={['shipped', 'delivered', 'completed'].includes(orderStatus)}
-                  isCompleted={['delivered', 'completed'].includes(orderStatus)}
-                />
-                <OrderStatusStep
-                  title="Delivered"
-                  description={order.estimated_delivery ? `Estimated delivery on ${formatDate(order.estimated_delivery)}` : 'Your order will be delivered soon'}
-                  isActive={['delivered', 'completed'].includes(orderStatus)}
-                  isCompleted={['completed'].includes(orderStatus)}
-                />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-gray-800">Order Status</h2>
+              <div className="text-sm text-gray-500">
+                Last updated: {formatDate(order.updated_at || order.order_date)}
               </div>
+            </div>
+            
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg">
+              
+
+              {/* Dynamic Status Steps */}
+              <div className="space-y-0">
+                {getOrderStatusSteps(order, orderStatus).map((step, index, array) => (
+                  <OrderStatusStep
+                    key={step.key}
+                    title={step.title}
+                    description={step.description}
+                    isActive={step.isActive}
+                    isCompleted={step.isCompleted}
+                    isError={step.isError}
+                    isSuccess={step.isSuccess}
+                    isLast={index === array.length - 1}
+                  />
+                ))}
+              </div>
+
             </div>
           </div>
 
@@ -642,20 +706,7 @@ const OrderDetailPage = () => {
         >
           Back to Orders
         </button>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => window.print()}
-            className="px-6 py-2 border border-[#00796B] text-[#00796B] rounded-lg hover:bg-[#E0F2F1] transition-colors"
-          >
-            Print Receipt
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-          >
-            Continue Shopping
-          </button>
-        </div>
+
       </div>
     </div>
   );

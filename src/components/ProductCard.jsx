@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   FiShoppingCart, 
   FiEdit, 
@@ -7,7 +7,8 @@ import {
   FiChevronLeft, 
   FiChevronRight, 
   FiEye,
-  FiStar
+  FiStar,
+  FiUser
 } from 'react-icons/fi';
 
 const ProductCard = ({
@@ -20,166 +21,259 @@ const ProductCard = ({
   onEditProduct = () => {},
   onPromoteProduct = () => {},
   onAddToCart = () => {},
-  onRateProduct = () => {}, // Changed from onAddToWishlist to onRateProduct
+  onRateProduct = () => {},
   onViewDetails = () => {},
   className = '',
   imageHeight = 'h-48',
   showInventoryPrice = false,
-  userRating = 0, // User's rating for this product (0-5)
-  averageRating = 0, // Average rating of the product
-  totalRatings = 0, // Total number of ratings
+  averageRating = 0,
+  totalRatings = 0,
   isInCart = false,
-  showTrending = false
+  showTrending = false,
+  // New props for optimization
+  userInfo = null, // Pass user info to avoid repeated localStorage calls
+  skipOwnershipCheck = false, // Skip ownership check when we already know
+  preloadedRating = null // Pass preloaded rating data
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [verifiedOwnership, setVerifiedOwnership] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hoveredRating, setHoveredRating] = useState(0);
+  const [productRating, setProductRating] = useState({ 
+    average: preloadedRating?.average || averageRating || 0, 
+    count: preloadedRating?.count || totalRatings || 0 
+  });
+  const [loadingRating, setLoadingRating] = useState(false);
 
-  // Find primary image or use the first image
-  const primaryImage = product.images?.find(img => img.is_primary === 1 || img.is_primary === true);
-  const images = product.images || [];
-  
-  // Effect to verify ownership when component mounts
-  useEffect(() => {
-    // Only check ownership if isOwner was not explicitly provided
-    if (isOwner === null || isOwner === undefined) {
-      verifyProductOwnership();
-    } else {
-      setVerifiedOwnership(isOwner);
-    }
-  }, [product.product_id]);
-  
-  // Function to verify product ownership via API
-  const verifyProductOwnership = async () => {
-    if (!product.product_id) return;
+  // Memoize auth token to avoid repeated localStorage calls
+  const authToken = useMemo(() => {
+    return userInfo?.token || localStorage.getItem('authToken');
+  }, [userInfo]);
+
+  // Memoize image processing
+  const imageData = useMemo(() => {
+    const images = product.images || [];
+    const primaryImage = images.find(img => img.is_primary === 1 || img.is_primary === true);
     
-    setIsLoading(true);
-    try {
-      // Get auth token from localStorage
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        setVerifiedOwnership(false);
+    return {
+      images,
+      primaryImage,
+      hasMultipleImages: images.length > 1
+    };
+  }, [product.images]);
+
+  // Optimized effect that combines both API calls
+  useEffect(() => {
+    let isMounted = true;
+    
+    const fetchProductData = async () => {
+      if (!product.product_id || !authToken) {
+        if (!authToken) {
+          setVerifiedOwnership(false);
+        }
         return;
       }
-      
-      const response = await fetch(`http://localhost:8000/api/products/${product.product_id}/check-owner`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setVerifiedOwnership(data.isOwner);
-      } else {
-        console.error('Failed to verify ownership:', response.statusText);
-        setVerifiedOwnership(false);
-      }
-    } catch (error) {
-      console.error('Error verifying product ownership:', error);
-      setVerifiedOwnership(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const getDisplayImage = () => {
-    // If product has images
-    if (images.length > 0) {
-      // When hovering and browsing through images
-      if (isHovered && images.length > 1) {
-        return images[currentImageIndex].image_path;
+      // Skip ownership check if explicitly told to or if we already have the info
+      const needsOwnershipCheck = !skipOwnershipCheck && verifiedOwnership === null;
+      const needsRatingCheck = !preloadedRating && productRating.average === 0;
+
+      if (!needsOwnershipCheck && !needsRatingCheck) {
+        return;
       }
-      // Default to primary image or first image
-      return primaryImage?.image_path || images[0].image_path;
+
+      try {
+        const headers = {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        };
+
+        // Create promises for the needed API calls
+        const promises = [];
+        const promiseTypes = [];
+
+        if (needsOwnershipCheck) {
+          promises.push(
+            fetch(`http://localhost:8000/api/products/${product.product_id}/check-owner`, { headers })
+          );
+          promiseTypes.push('ownership');
+        }
+
+        if (needsRatingCheck) {
+          promises.push(
+            fetch(`http://localhost:8000/api/products/${product.product_id}/average-rating`, { headers })
+          );
+          promiseTypes.push('rating');
+        }
+
+        // Execute all promises concurrently
+        if (promises.length > 0) {
+          const responses = await Promise.all(promises);
+          
+          // Process responses
+          for (let i = 0; i < responses.length; i++) {
+            const response = responses[i];
+            const type = promiseTypes[i];
+
+            if (!isMounted) return;
+
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (type === 'ownership') {
+                setVerifiedOwnership(data.isOwner);
+              } else if (type === 'rating') {
+                setProductRating({
+                  average: data.average_rating || 0,
+                  count: data.total_ratings || 0
+                });
+              }
+            } else {
+              console.error(`Failed to fetch ${type}:`, response.statusText);
+              if (type === 'ownership') {
+                setVerifiedOwnership(false);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching product data:', error);
+        if (needsOwnershipCheck && isMounted) {
+          setVerifiedOwnership(false);
+        }
+      }
+    };
+
+    // Set initial ownership if we have the info already
+    if (skipOwnershipCheck || (authToken && isOwner)) {
+      setVerifiedOwnership(isOwner);
+    }
+
+    fetchProductData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [product.product_id, authToken, skipOwnershipCheck, isOwner, preloadedRating]);
+
+  // Optimized image display function
+  const getDisplayImage = useMemo(() => {
+    const { images, primaryImage } = imageData;
+    
+    if (images.length > 0) {
+      if (isHovered && images.length > 1) {
+        return images[currentImageIndex]?.image_path;
+      }
+      return primaryImage?.image_path || images[0]?.image_path;
     }
     
-    // Legacy support for products with direct image property
     if (product.image) {
       return product.image.startsWith('http') ? product.image : `${storageUrl}/${product.image}`;
     }
     
-    // No image available
     return null;
-  };
+  }, [imageData, isHovered, currentImageIndex, product.image, storageUrl]);
 
   const handlePrevImage = (e) => {
     e.stopPropagation();
-    if (images.length > 1) {
-      setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    if (imageData.hasMultipleImages) {
+      setCurrentImageIndex((prev) => (prev === 0 ? imageData.images.length - 1 : prev - 1));
     }
   };
 
   const handleNextImage = (e) => {
     e.stopPropagation();
-    if (images.length > 1) {
-      setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    if (imageData.hasMultipleImages) {
+      setCurrentImageIndex((prev) => (prev === imageData.images.length - 1 ? 0 : prev + 1));
     }
   };
 
-  const handleStarClick = (rating) => {
-    onRateProduct(product, rating);
-  };
-
-  const renderStars = (rating, isInteractive = false, size = 16) => {
-    const stars = [];
-    const displayRating = isInteractive ? (hoveredRating || userRating) : rating;
-    
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <button
-          key={i}
-          onClick={() => isInteractive && handleStarClick(i)}
-          onMouseEnter={() => isInteractive && setHoveredRating(i)}
-          onMouseLeave={() => isInteractive && setHoveredRating(0)}
-          className={`${isInteractive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
-          disabled={!isInteractive}
-        >
+  // Memoized star rendering
+  const renderStars = useMemo(() => {
+    return (rating, size = 16) => {
+      const stars = [];
+      
+      for (let i = 1; i <= 5; i++) {
+        stars.push(
           <FiStar
+            key={i}
             size={size}
             className={`${
-              i <= displayRating
+              i <= rating
                 ? 'text-yellow-400 fill-current'
                 : 'text-gray-300'
             } transition-colors`}
           />
-        </button>
-      );
-    }
-    
-    return stars;
-  };
+        );
+      }
+      
+      return stars;
+    };
+  }, []);
 
   // Use verified ownership or prop-passed ownership
   const displayAsOwner = verifiedOwnership !== null ? verifiedOwnership : isOwner;
+  const isCheckingOwnership = !skipOwnershipCheck && verifiedOwnership === null && authToken;
 
-  // Loading state while checking ownership
-  if (isLoading) {
+  // Show loading only if we're actually checking ownership and it's taking time
+  if (isCheckingOwnership) {
     return (
-      <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className} p-4 flex items-center justify-center`}>
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00796B]"></div>
+      <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className}`}>
+        {/* Show the product with a subtle loading indicator instead of full loading screen */}
+        <div className="relative">
+          {/* Product Image */}
+          <div className={`relative bg-gray-100 ${imageHeight}`}>
+            {getDisplayImage ? (
+              <img 
+                src={getDisplayImage}
+                alt={product.product_name}
+                className="w-full h-full object-cover opacity-75"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/placeholder-product.png';
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <FiShoppingCart size={48} />
+              </div>
+            )}
+            
+            {/* Loading overlay */}
+            <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#00796B]"></div>
+            </div>
+          </div>
+          
+          {/* Product Info */}
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 mb-2">
+              {product.product_name}
+            </h3>
+            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+            <div className="font-bold text-[#00796B]">
+              ${parseFloat(product.price).toFixed(2)}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div 
-      className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${className}`}
+      className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
-        setCurrentImageIndex(0); // Reset to first/primary image when leaving
+        setCurrentImageIndex(0);
       }}
     >
       {/* Product Image */}
       <div className={`relative bg-gray-100 ${imageHeight}`}>
-        {getDisplayImage() ? (
+        {getDisplayImage ? (
           <>
             <img 
-              src={getDisplayImage()}
+              src={getDisplayImage}
               alt={product.product_name}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -187,11 +281,6 @@ const ProductCard = ({
                 e.target.src = '/placeholder-product.png';
               }}
             />
-            
-            {/* Brand Mark */}
-            <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white px-2 py-1 text-xs font-medium">
-              HealthLink
-            </div>
             
             {/* Trending Badge */}
             {showTrending && (
@@ -201,16 +290,16 @@ const ProductCard = ({
             )}
             
             {/* Average Rating Badge */}
-            {averageRating > 0 && (
+            {productRating.average > 0 && (
               <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 text-xs rounded-full flex items-center gap-1">
                 <FiStar size={12} className="text-yellow-400 fill-current" />
-                <span>{averageRating.toFixed(1)}</span>
-                {totalRatings > 0 && <span>({totalRatings})</span>}
+                <span>{productRating.average.toFixed(1)}</span>
+                {productRating.count > 0 && <span>({productRating.count})</span>}
               </div>
             )}
             
-            {/* Image carousel navigation - only show when hovering and multiple images exist */}
-            {isHovered && images.length > 1 && (
+            {/* Image carousel navigation */}
+            {isHovered && imageData.hasMultipleImages && (
               <>
                 <button 
                   onClick={handlePrevImage}
@@ -230,7 +319,7 @@ const ProductCard = ({
                 
                 {/* Image counter indicator */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
-                  {currentImageIndex + 1}/{images.length}
+                  {currentImageIndex + 1}/{imageData.images.length}
                 </div>
               </>
             )}
@@ -257,35 +346,54 @@ const ProductCard = ({
       
       {/* Product Info */}
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{product.product_name}</h3>
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 flex-1">
+            {product.product_name}
+            {displayAsOwner && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#00796B] text-white">
+                <FiStar className="mr-1" size={10} /> Your Product
+              </span>
+            )}
+          </h3>
+        </div>
         
         <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
         
-        {/* Rating Section - Show for non-owners */}
-        {!displayAsOwner && (
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="flex gap-1">
-                {renderStars(averageRating, false, 14)}
+        {/* Rating Section */}
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            {loadingRating ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-pulse flex gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="w-4 h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                <span className="text-sm text-gray-400">Loading...</span>
               </div>
-              <span className="text-sm text-gray-600">
-                {averageRating > 0 ? `${averageRating.toFixed(1)}` : 'No ratings'}
-                {totalRatings > 0 && ` (${totalRatings})`}
-              </span>
-            </div>
-            
-            {/* User's rating interface */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-gray-500">Your rating:</span>
-              <div className="flex gap-1">
-                {renderStars(userRating, true, 14)}
-              </div>
-              {userRating > 0 && (
-                <span className="text-gray-600">({userRating}/5)</span>
-              )}
-            </div>
+            ) : (
+              <>
+                <div className="flex gap-1">
+                  {renderStars(productRating.average, 16)}
+                </div>
+                <span className="text-sm text-gray-600">
+                  {productRating.average > 0 ? (
+                    <>
+                      {productRating.average.toFixed(1)} 
+                      {productRating.count > 0 && (
+                        <span className="text-gray-500">
+                          ({productRating.count} review{productRating.count !== 1 ? 's' : ''})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-500">No reviews yet</span>
+                  )}
+                </span>
+              </>
+            )}
           </div>
-        )}
+        </div>
         
         {/* Show category if it's the inventory page */}
         {showInventoryPrice && product.category && (
@@ -317,7 +425,6 @@ const ProductCard = ({
                 <FiEdit size={18} />
               </button>
               
-              {/* Only show promote button if we're not on inventory page */}
               {!showInventoryPrice && onPromoteProduct && (
                 <button
                   onClick={() => onPromoteProduct(product)}
@@ -359,7 +466,7 @@ const ProductCard = ({
           )}
         </div>
         
-        {/* View Details button - added in all cases */}
+        {/* View Details button */}
         <div className="mt-3">
           <button
             onClick={() => onViewDetails(product)}

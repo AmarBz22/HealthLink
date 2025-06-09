@@ -27,7 +27,41 @@ const ProductDetailsPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
   
+  // Fetch current user data
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setUserLoading(false);
+          return;
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        };
+
+        const userResponse = await axios.get(
+          'http://localhost:8000/api/user',
+          { headers }
+        );
+        
+        setCurrentUser(userResponse.data);
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+        // Don't show error toast for user fetch as it's not critical
+      } finally {
+        setUserLoading(false);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
+
   // Fetch product data
   useEffect(() => {
     const fetchProductData = async () => {
@@ -85,6 +119,13 @@ const ProductDetailsPage = () => {
 
     fetchProductData();
   }, [productId, storeId, navigate]);
+
+  // Check if current user is admin or supplier
+  const isAdminOrSupplier = () => {
+    if (!currentUser || !currentUser.role) return false;
+    const role = currentUser.role.toLowerCase();
+    return role === 'admin' || role === 'supplier';
+  };
 
   // Handle quantity changes
   const decreaseQuantity = () => {
@@ -183,7 +224,7 @@ const ProductDetailsPage = () => {
     setCurrentImageIndex(index);
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
@@ -362,34 +403,71 @@ const ProductDetailsPage = () => {
               </div>
             </div>
             
+            {/* Quantity Selector - Only show if not admin/supplier */}
+            {!isAdminOrSupplier() && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Quantity</h3>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={decreaseQuantity}
+                    disabled={quantity <= 1}
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FiMinus size={14} />
+                  </button>
+                  <span className="text-lg font-medium w-12 text-center">{quantity}</span>
+                  <button
+                    onClick={increaseQuantity}
+                    disabled={quantity >= (product?.stock || 10)}
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FiPlus size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
             
-            {/* Action Buttons - Wishlist removed */}
-            <div className="flex flex-col space-y-3 mt-auto">
-              <button
-                onClick={handleAddToCart}
-                disabled={addingToCart || product.stock <= 0}
-                className={`w-full py-3 px-4 flex justify-center items-center rounded-lg ${
-                  product.stock <= 0
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-[#00796B] hover:bg-[#00695C] text-white'
-                } transition-colors shadow-sm`}
-              >
-                <FiShoppingCart className="mr-2" />
-                {addingToCart ? 'Adding...' : 'Add to Cart'}
-              </button>
-              
-              <button
-                onClick={handleBuyNow}
-                disabled={product.stock <= 0}
-                className={`w-full py-3 px-4 rounded-lg ${
-                  product.stock <= 0
-                    ? 'bg-gray-200 border border-gray-300 text-gray-400 cursor-not-allowed'
-                    : 'bg-white border border-[#00796B] text-[#00796B] hover:bg-[#E0F2F1]'
-                } transition-colors`}
-              >
-                Buy Now
-              </button>
-            </div>
+            {/* Action Buttons - Only show if not admin/supplier */}
+            {!isAdminOrSupplier() && (
+              <div className="flex flex-col space-y-3 mt-auto">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addingToCart || product.stock <= 0}
+                  className={`w-full py-3 px-4 flex justify-center items-center rounded-lg ${
+                    product.stock <= 0
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : 'bg-[#00796B] hover:bg-[#00695C] text-white'
+                  } transition-colors shadow-sm`}
+                >
+                  <FiShoppingCart className="mr-2" />
+                  {addingToCart ? 'Adding...' : 'Add to Cart'}
+                </button>
+                
+                <button
+                  onClick={handleBuyNow}
+                  disabled={product.stock <= 0}
+                  className={`w-full py-3 px-4 rounded-lg ${
+                    product.stock <= 0
+                      ? 'bg-gray-200 border border-gray-300 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border border-[#00796B] text-[#00796B] hover:bg-[#E0F2F1]'
+                  } transition-colors`}
+                >
+                  Buy Now
+                </button>
+              </div>
+            )}
+
+            {/* Message for Admin/Supplier users */}
+            {isAdminOrSupplier() && (
+              <div className="mt-auto p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center">
+                  <FiInfo className="text-blue-600 mr-2" />
+                  <p className="text-blue-800 text-sm">
+                    You are viewing this product as {currentUser?.role}. Purchase options are not available for your role.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         

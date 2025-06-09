@@ -8,7 +8,8 @@ import {
   FiShoppingBag,
   FiDollarSign,
   FiTrash2,
-  FiCheck
+  FiCheck,
+  FiSend
 } from 'react-icons/fi';
 
 const OrdersTable = ({ 
@@ -20,8 +21,11 @@ const OrdersTable = ({
   onNavigateToDetails,
   onApproveOrder,
   onDeleteOrder,
+  onShipOrder,        // New prop
+  onDeliverOrder,     // New prop
   getBuyerInfo,
-  getSellerInfo
+  getSellerInfo,
+  currentUser         // New prop
 }) => {
 
   const formatDate = (dateString) => {
@@ -126,6 +130,18 @@ const OrdersTable = ({
   const handleDeleteOrder = (order) => {
     if (onDeleteOrder) {
       onDeleteOrder(order);
+    }
+  };
+
+  const handleShipOrder = (order) => {
+    if (onShipOrder) {
+      onShipOrder(order);
+    }
+  };
+
+  const handleDeliverOrder = (order) => {
+    if (onDeliverOrder) {
+      onDeliverOrder(order);
     }
   };
 
@@ -298,7 +314,7 @@ const OrdersTable = ({
                                 </div>
                               )}
 
-                              {/* Customer Information - SWAPPED LOGIC */}
+                              {/* Customer Information */}
                               <div className="mt-4 pt-3 border-t border-gray-100">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
@@ -326,33 +342,75 @@ const OrdersTable = ({
                                 </div>
                               </div>
                               
+                              {/* Enhanced Manage Order Section */}
                               <div className="mt-4 pt-3 border-t border-gray-100">
                                 <div className="flex justify-between items-center">
                                   <h3 className="text-sm font-medium text-gray-600">Manage Order</h3>
-                                  <div className="space-x-2">
-                                    {activeTab === 'received' && 
-                                     order.order_status?.toLowerCase() !== 'processing' && 
-                                     order.order_status?.toLowerCase() !== 'shipped' &&
-                                     order.order_status?.toLowerCase() !== 'delivered' && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {/* Received Orders Actions (Seller's perspective) */}
+                                    {activeTab === 'received' && (
+                                      <>
+                                        {/* Approve Order - Only show for pending orders */}
+                                        {order.order_status?.toLowerCase() === 'pending' && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleApproveOrder(order);
+                                            }}
+                                            className="px-3 py-1 bg-green-50 text-green-700 rounded-md text-sm hover:bg-green-100 transition-colors flex items-center"
+                                          >
+                                            <FiCheck className="mr-1" /> Approve Order
+                                          </button>
+                                        )}
+                                        
+                                        {/* Ship Order - Only show for processing orders */}
+                                        {order.order_status?.toLowerCase() === 'processing' && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleShipOrder(order);
+                                            }}
+                                            className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors flex items-center"
+                                          >
+                                            <FiTruck className="mr-1" /> Ship Order
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                    
+                                    {/* Placed Orders Actions (Buyer's perspective) */}
+                                    {activeTab === 'placed' && (
+                                      <>
+                                        {/* Mark as Delivered - Only show for shipped orders */}
+                                        {order.order_status?.toLowerCase() === 'shipped' && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeliverOrder(order);
+                                            }}
+                                            className="px-3 py-1 bg-green-50 text-green-700 rounded-md text-sm hover:bg-green-100 transition-colors flex items-center"
+                                          >
+                                            <FiPackage className="mr-1" /> Mark as Delivered
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                    
+                                    {/* Delete Order - Available for both tabs with conditions */}
+                                    {(
+                                      (activeTab === 'placed' && order.order_status?.toLowerCase() === 'pending') ||
+                                      (activeTab === 'received' && ['pending', 'delivered', 'cancelled'].includes(order.order_status?.toLowerCase()))
+                                    ) && (
                                       <button 
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleApproveOrder(order);
+                                          handleDeleteOrder(order);
                                         }}
-                                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
+                                        className="px-3 py-1 bg-red-50 text-red-700 rounded-md text-sm hover:bg-red-100 transition-colors flex items-center"
                                       >
-                                        <FiTruck className="inline mr-1" /> Approve Order
+                                        <FiTrash2 className="mr-1" /> Delete Order
                                       </button>
                                     )}
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteOrder(order);
-                                      }}
-                                      className="px-3 py-1 bg-red-50 text-red-700 rounded-md text-sm hover:bg-red-100 transition-colors"
-                                    >
-                                      <FiTrash2 className="inline mr-1" /> Delete Order
-                                    </button>
                                   </div>
                                 </div>
                               </div>

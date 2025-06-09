@@ -56,6 +56,7 @@ const StoreDetailsPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null); // Add current user state
   const [deletingProductId, setDeletingProductId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -91,6 +92,7 @@ const StoreDetailsPage = () => {
           axios.get(`http://localhost:8000/api/products/${id}`, { headers })
         ]);
 
+        const userData = userResponse.data;
         const storeData = Array.isArray(storeResponse.data) 
           ? storeResponse.data[0] 
           : storeResponse.data?.data || storeResponse.data;
@@ -102,9 +104,10 @@ const StoreDetailsPage = () => {
           ? productsResponse.data.filter(product => product.type === productType)
           : [];
 
+        setCurrentUser(userData); // Store current user data
         setStore(storeData);
         setProducts(filteredProducts);
-        setIsOwner(userResponse.data?.id === storeData.owner_id);
+        setIsOwner(userData?.id === storeData.owner_id);
 
       } catch (error) {
         console.error('Error loading data:', error);
@@ -210,6 +213,15 @@ const StoreDetailsPage = () => {
 
   const handleOrderNow = (product) => {
     navigate('/checkout', { state: { products: [product] }});
+  };
+
+  // Function to handle Add Product routing based on user role
+  const handleAddProduct = () => {
+    if (currentUser?.role === 'Dentist' || currentUser?.role === 'Doctor') {
+      navigate(`/store/${id}/addUsedEquipement`);
+    } else {
+      navigate(`/store/${id}/addProduct`);
+    }
   };
 
   if (loading) {
@@ -354,23 +366,25 @@ const StoreDetailsPage = () => {
         <div className="h-1 w-20 bg-[#00796B] rounded"></div>
       </div>
 
-      {/* Products Section */}
+      {/* Products Section with user role passed */}
       <ProductsSection
-        products={products}
-        isOwner={isOwner}
-        storeId={id}
-        deletingProductId={deletingProductId}
-        processingInventory={processingInventory}
-        storageUrl={storageUrl}
-        onAddProduct={() => navigate(`/store/${id}/addProduct`)}
-        onDeleteProduct={handleDeleteClick}
-        onEditProduct={(product) => navigate(`/store/${id}/products/${product.product_id}/edit`)}
-        onPromoteProduct={handlePromoteClick}
-        onAddToCart={(product) => {
-          setSelectedProduct(product);
-          setCartModalOpen(true);
-        }}
-      />
+  products={products}
+  isOwner={isOwner}
+  storeId={id}
+  userRole={currentUser?.role}
+  productType={productType} // Add this line
+  deletingProductId={deletingProductId}
+  processingInventory={processingInventory}
+  storageUrl={storageUrl}
+  onAddProduct={handleAddProduct}
+  onDeleteProduct={handleDeleteClick}
+  onEditProduct={(product) => navigate(`/store/${id}/products/${product.product_id}/edit`)}
+  onPromoteProduct={handlePromoteClick}
+  onAddToCart={(product) => {
+    setSelectedProduct(product);
+    setCartModalOpen(true);
+  }}
+/>
 
       {/* Add to Cart Modal */}
       <AddToCartModal

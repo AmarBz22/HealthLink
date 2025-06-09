@@ -13,8 +13,10 @@ import {
   FiX,
   FiLogIn
 } from 'react-icons/fi';
+import axios from 'axios';
 import Navbar from '../components/Navbar';
-import ProductCard from '../components/ProductCard'; 
+import ProductCard from '../components/ProductCard';
+import StoreCard from '../components/StoreCard';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -26,14 +28,38 @@ const LandingPage = () => {
   const [modalType, setModalType] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   
-  // Check login status on component mount
+  // Check login status and fetch user data on component mount
   useEffect(() => {
-    // This is a placeholder - you should implement actual authentication check
-    // For example, check for auth token in localStorage or sessionStorage
-    const checkLoginStatus = () => {
+    const checkLoginStatus = async () => {
       const token = localStorage.getItem('authToken');
       setIsLoggedIn(!!token);
+      
+      if (token) {
+        try {
+          const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          };
+          
+          // Fetch current user data (same as in store listing)
+          const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
+          const currentUser = userResponse.data;
+          setCurrentUserId(currentUser.id);
+          setCurrentUserRole(currentUser.role);
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // If token is invalid, remove it
+          if (error.response?.status === 401) {
+            localStorage.removeItem('authToken');
+            setIsLoggedIn(false);
+            setCurrentUserId(null);
+            setCurrentUserRole(null);
+          }
+        }
+      }
     };
     
     checkLoginStatus();
@@ -43,13 +69,19 @@ const LandingPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem('authToken');
+        const headers = token ? {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        } : {};
+        
         // Fetch products from API
-        const productsResponse = await fetch('http://localhost:8000/api/products');
-        const productsData = await productsResponse.json();
+        const productsResponse = await axios.get('http://localhost:8000/api/products', { headers });
+        const productsData = productsResponse.data;
         
         // Fetch stores from API
-        const storesResponse = await fetch('http://localhost:8000/api/stores');
-        const storesData = await storesResponse.json();
+        const storesResponse = await axios.get('http://localhost:8000/api/stores', { headers });
+        const storesData = storesResponse.data;
         
         // For categories, we'll use mock data for now since it's not in the API
         const mockCategories = [
@@ -91,17 +123,22 @@ const LandingPage = () => {
           }
         ];
         
-        // Process store data with additional properties for UI
-        const processedStores = storesData.map(store => ({
-          ...store,
-          logo: '/api/placeholder/80/80',
-          verified: Math.random() > 0.3, // Random verification status for demo
-          rating: (4 + Math.random()).toFixed(1), // Random rating between 4.0-5.0
-          reviews: Math.floor(Math.random() * 1000) + 100, // Random number of reviews
-          specialties: ['Medical Equipment', 'Healthcare Devices'] // Mock specialties
+        // Process store data to match StoreCard expected format (same as store listing)
+        const processedStores = (storesData || []).map(store => ({
+          id: store.id,
+          owner_id: store.owner_id,
+          name: store.store_name,  // Backend uses store_name, frontend expects name
+          description: store.description,
+          phone: store.phone,
+          email: store.email,
+          address: store.address,
+          logo_path: store.logo,
+          is_verified: store.is_verified,
+          specialties: store.specialties || ['Medical Equipment', 'Healthcare Devices'], // Mock specialties if not available
+          isOwner: currentUserId ? store.owner_id === parseInt(currentUserId) : false // Determine ownership
         }));
         
-        setFeaturedProducts(productsData);
+        setFeaturedProducts(productsData || []);
         setTopStores(processedStores);
         setCategories(mockCategories);
         setLoading(false);
@@ -112,12 +149,14 @@ const LandingPage = () => {
       }
     };
     
-    fetchData();
-  }, []);
+    // Only fetch data after we've determined the current user
+    if (currentUserId !== null || !isLoggedIn) {
+      fetchData();
+    }
+  }, [currentUserId, isLoggedIn]); // Re-fetch when user ID changes
 
   // Fallback function to use mock data if API fails
   const fallbackToMockData = () => {
-    
     // Mock categories (same as in the useEffect)
     const mockCategories = [
       {
@@ -158,8 +197,9 @@ const LandingPage = () => {
       }
     ];
     
-   
     setCategories(mockCategories);
+    setTopStores([]);
+    setFeaturedProducts([]);
     setLoading(false);
   };
 
@@ -225,6 +265,11 @@ const LandingPage = () => {
     }
   };
 
+  // Handle store delete success - updates the stores list after deletion
+  const handleStoreDeleteSuccess = (storeId) => {
+    setTopStores(prevStores => prevStores.filter(store => store.id !== storeId));
+  };
+
   // Connection Modal Component
   const ConnectionModal = () => {
     if (!showModal) return null;
@@ -266,13 +311,15 @@ const LandingPage = () => {
                 <div className="flex items-center space-x-4">
                   <div className="h-16 w-16 bg-gray-100 rounded-full overflow-hidden">
                     <img 
-                      src={selectedItem.logo || '/api/placeholder/80/80'} 
-                      alt={selectedItem.store_name}
+                      src={selectedItem.logo_path 
+                        ? `http://localhost:8000/storage/${selectedItem.logo_path}` 
+                        : '/api/placeholder/80/80'} 
+                      alt={selectedItem.name}
                       className="h-full w-full object-cover" 
                     />
                   </div>
                   <div>
-                    <h4 className="font-medium">{selectedItem.store_name}</h4>
+                    <h4 className="font-medium">{selectedItem.name}</h4>
                     {selectedItem.rating && (
                       <div className="flex items-center">
                         <FiStar className="text-yellow-400 mr-1" />
@@ -495,7 +542,7 @@ const LandingPage = () => {
         </div>
       </div>
       
-      {/* Trusted Stores */}
+      {/* Trusted Stores - Now using StoreCard component with proper ownership */}
       <div className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-8">
@@ -510,57 +557,14 @@ const LandingPage = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {topStores.map((store) => (
-              <div
+              <StoreCard
                 key={store.id}
-                onClick={() => handleStoreClick(store)}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="h-16 w-16 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                    <img
-                      src={store.logo || '/api/placeholder/80/80'}
-                      alt={store.store_name}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center">
-                      <h3 className="font-semibold text-gray-900">{store.store_name}</h3>
-                      {store.verified && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#B2DFDB] text-[#00796B]">
-                          <FiStar className="mr-1" /> Verified
-                        </span>
-                      )}
-                    </div>
-                    {store.rating && (
-                      <div className="flex items-center mt-1">
-                        <FiStar className="text-yellow-400 mr-1" />
-                        <span className="text-sm font-medium text-gray-900">{store.rating}</span>
-                        <span className="mx-1 text-gray-300">|</span>
-                        <span className="text-sm text-gray-500">{store.reviews} reviews</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {store.specialties && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Specialties</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {store.specialties.map((specialty, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#E0F2F1] text-[#00796B]"
-                        >
-                          {specialty}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                store={store}
+                currentUserId={currentUserId}
+                onDeleteSuccess={handleStoreDeleteSuccess}
+              />
             ))}
           </div>
         </div>

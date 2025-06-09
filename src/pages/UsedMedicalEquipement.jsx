@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter, FiPlus, FiUser, FiUsers } from 'react-icons/fi';
+import { FiPackage, FiShoppingCart, FiArrowRight, FiSearch, FiFilter, FiPlus, FiUser, FiUsers, FiCamera, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ProductCard from '../components/ProductCard';
 import AddToCartModal from '../components/AddToCartModal';
+import ImageSearchComponent from '../components/ImageSearch';
 import { useBasket } from '../context/BasketContext';
 
 const UsedMedicalEquipmentPage = () => {
@@ -18,6 +19,11 @@ const UsedMedicalEquipmentPage = () => {
   const [ownershipFilter, setOwnershipFilter] = useState(''); // New filter for ownership
   const [deletingProductId, setDeletingProductId] = useState(null);
   const storageUrl = 'http://localhost:8000/storage';
+  
+  // Image search states
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // Add state for the modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -139,8 +145,41 @@ const UsedMedicalEquipmentPage = () => {
     setSelectedProduct(null);
   };
 
+  // Image search handlers - search only within used equipment
+  const handleSearchResults = (results) => {
+    // Filter the search results to only include used equipment
+    const equipmentSearchResults = results.filter(result => 
+      usedEquipments.some(equipment => equipment.product_id === result.product_id)
+    );
+    
+    setSearchResults(equipmentSearchResults);
+    setHasSearched(true);
+  };
+
+  const handleResetSearch = () => {
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  const handleCloseSearch = () => {
+    setShowImageSearch(false);
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  const resetImageSearch = () => {
+    setShowImageSearch(false);
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
+  // Determine which products to display
+  const baseProducts = searchResults.length > 0 ? searchResults : usedEquipments;
+  const isShowingSearchResults = hasSearched && searchResults.length > 0;
+  const isShowingNoResults = hasSearched && searchResults.length === 0;
+
   // Filter products based on search term, category, condition, and ownership
-  const filteredProducts = usedEquipments.filter(product => {
+  const filteredProducts = baseProducts.filter(product => {
     const matchesSearch = searchTerm === '' || 
       product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -159,7 +198,7 @@ const UsedMedicalEquipmentPage = () => {
     return matchesSearch && matchesCategory && matchesCondition && matchesOwnership;
   });
 
-  // Count products for filter badges
+  // Count products for filter badges (only from original used equipment)
   const myProductsCount = usedEquipments.filter(product => 
     productOwnership[product.product_id] || false
   ).length;
@@ -176,12 +215,6 @@ const UsedMedicalEquipmentPage = () => {
         </h1>
         <div className="flex space-x-2">
           <button 
-            onClick={() => navigate('/used-equipment/add')}
-            className="flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-          >
-            <FiPlus className="mr-2" /> Add Equipment
-          </button>
-          <button 
             onClick={() => navigate(-1)}
             className="flex items-center text-[#00796B] hover:underline"
           >
@@ -190,105 +223,159 @@ const UsedMedicalEquipmentPage = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-8">
-        <div className="relative flex-grow">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiSearch className="text-gray-400" />
+      {/* Search and Filter Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        {/* Status indicator */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="text-sm text-gray-500">
+            {isShowingSearchResults ? (
+              <span>
+                {searchResults.length} search {searchResults.length === 1 ? 'result' : 'results'} found in used equipment
+              </span>
+            ) : isShowingNoResults ? (
+              <span>No similar equipment found in used equipment listings</span>
+            ) : (
+              <span>
+                {usedEquipments.length} used equipment {usedEquipments.length === 1 ? 'listing' : 'listings'} available
+              </span>
+            )}
           </div>
-          <input
-            type="text"
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            placeholder="Search equipment..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <div className="relative w-full lg:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiFilter className="text-gray-400" />
+          
+          <div className="flex items-center gap-3">
+            {/* Image Search Button */}
+            {!showImageSearch && (
+              <button
+                onClick={() => setShowImageSearch(true)}
+                className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiCamera className="mr-2" size={16} /> Search Equipment by Image
+              </button>
+            )}
+
+            {/* Reset Search Results */}
+            {(isShowingSearchResults || isShowingNoResults) && (
+              <button
+                onClick={resetImageSearch}
+                className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiX className="mr-2" size={16} /> Show All Equipment
+              </button>
+            )}
           </div>
-          <select
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((category, index) => (
-              <option key={index} value={category}>{category}</option>
-            ))}
-          </select>
         </div>
 
-        <div className="relative w-full lg:w-48">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiFilter className="text-gray-400" />
+        {/* Traditional Search and Filters */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              placeholder="Search equipment..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <select
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            value={filterCondition}
-            onChange={(e) => setFilterCondition(e.target.value)}
-          >
-            <option value="">All Conditions</option>
-            {conditions.map((condition, index) => (
-              <option key={index} value={condition}>{condition}</option>
-            ))}
-          </select>
+          
+          <div className="relative w-full lg:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiFilter className="text-gray-400" />
+            </div>
+            <select
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((category, index) => (
+                <option key={index} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="relative w-full lg:w-48">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiFilter className="text-gray-400" />
+            </div>
+            <select
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              value={filterCondition}
+              onChange={(e) => setFilterCondition(e.target.value)}
+            >
+              <option value="">All Conditions</option>
+              {conditions.map((condition, index) => (
+                <option key={index} value={condition}>{condition}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ownership Filter */}
+          <div className="relative w-full lg:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiUser className="text-gray-400" />
+            </div>
+            <select
+              className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
+              value={ownershipFilter}
+              onChange={(e) => setOwnershipFilter(e.target.value)}
+            >
+              <option value="">All Equipment</option>
+              <option value="my">My Equipment ({myProductsCount})</option>
+              <option value="others">Other Equipment ({otherProductsCount})</option>
+            </select>
+          </div>
         </div>
 
-        {/* Ownership Filter */}
-        <div className="relative w-full lg:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiUser className="text-gray-400" />
-          </div>
-          <select
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-            value={ownershipFilter}
-            onChange={(e) => setOwnershipFilter(e.target.value)}
+        {/* Filter Badges */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setOwnershipFilter('')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              ownershipFilter === '' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            <option value="">All Equipment</option>
-            <option value="my">My Equipment ({myProductsCount})</option>
-            <option value="others">Other Equipment ({otherProductsCount})</option>
-          </select>
+            All ({usedEquipments.length})
+          </button>
+          <button
+            onClick={() => setOwnershipFilter('my')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+              ownershipFilter === 'my' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <FiUser className="w-3 h-3 mr-1" />
+            My Equipment ({myProductsCount})
+          </button>
+          <button
+            onClick={() => setOwnershipFilter('others')}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
+              ownershipFilter === 'others' 
+                ? 'bg-[#00796B] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <FiUsers className="w-3 h-3 mr-1" />
+            Other Equipment ({otherProductsCount})
+          </button>
         </div>
       </div>
 
-      {/* Filter Badges */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <button
-          onClick={() => setOwnershipFilter('')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            ownershipFilter === '' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          All ({usedEquipments.length})
-        </button>
-        <button
-          onClick={() => setOwnershipFilter('my')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
-            ownershipFilter === 'my' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <FiUser className="w-3 h-3 mr-1" />
-          My Equipment ({myProductsCount})
-        </button>
-        <button
-          onClick={() => setOwnershipFilter('others')}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
-            ownershipFilter === 'others' 
-              ? 'bg-[#00796B] text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <FiUsers className="w-3 h-3 mr-1" />
-          Other Equipment ({otherProductsCount})
-        </button>
-      </div>
+      {/* Image Search Component */}
+      <ImageSearchComponent
+        isVisible={showImageSearch}
+        searchResults={searchResults}
+        hasSearched={hasSearched}
+        onSearchResults={handleSearchResults}
+        onReset={handleResetSearch}
+        onClose={handleCloseSearch}
+        // Pass used equipment to limit search scope
+        limitToProducts={usedEquipments}
+      />
 
       {loading ? (
         <div className="flex justify-center items-center py-20">
@@ -296,26 +383,29 @@ const UsedMedicalEquipmentPage = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.product_id}
-                product={product}
-                isOwner={productOwnership[product.product_id] || false}
-                storageUrl={storageUrl}
-                deletingProductId={deletingProductId}
-                onDeleteProduct={handleDeleteProduct}
-                onEditProduct={handleEditProduct}
-                onAddToCart={handleAddToCart}
-                onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
-                showInventoryPrice={false} // Different from inventory - might show different pricing
-                showCondition={true} // Show condition badge for used equipment
-              />
-            ))}
-          </div>
+          {/* Products Grid */}
+          {!isShowingNoResults && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  isOwner={productOwnership[product.product_id] || false}
+                  storageUrl={storageUrl}
+                  deletingProductId={deletingProductId}
+                  onDeleteProduct={handleDeleteProduct}
+                  onEditProduct={handleEditProduct}
+                  onAddToCart={handleAddToCart}
+                  onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
+                  showInventoryPrice={false} // Different from inventory - might show different pricing
+                  showCondition={true} // Show condition badge for used equipment
+                />
+              ))}
+            </div>
+          )}
 
           {/* Empty State */}
-          {filteredProducts.length === 0 && (
+          {filteredProducts.length === 0 && !isShowingNoResults && (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm">
               <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
                 <FiPackage className="w-full h-full" />

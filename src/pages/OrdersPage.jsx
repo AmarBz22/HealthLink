@@ -5,13 +5,18 @@ import {
   FiLoader,
   FiSearch,
   FiShoppingCart,
-  FiSend
+  FiSend,
+  FiTruck,
+  FiPackage
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import React from 'react';
 import ApproveOrderModal from '../components/ApproveOrderModal';
 import DeleteOrderModal from '../components/DeleteOrderModal';
+import ShipOrderModal from '../components/ShipOrderModal';
+import DeliverOrderModal from '../components/DeliverModal';
+import ProductRatingModal from '../components/ProductRatingModal';
 import OrdersTable from '../components/OrdersTable';
 import { useOrderData } from '../hooks/UseOrderData';
 
@@ -26,6 +31,12 @@ const OrdersPage = () => {
   const [orderToApprove, setOrderToApprove] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState(null);
+  const [showShipModal, setShowShipModal] = useState(false);
+  const [orderToShip, setOrderToShip] = useState(null);
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [orderToDeliver, setOrderToDeliver] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [orderToRate, setOrderToRate] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
 
@@ -109,6 +120,50 @@ const OrdersPage = () => {
     setOrderToDelete(order);
     setShowDeleteModal(true);
   };
+
+  // New function to handle shipping orders
+  const handleShipOrder = (order) => {
+    setOrderToShip(order);
+    setShowShipModal(true);
+  };
+
+  // New function to handle delivering orders
+  const handleDeliverOrder = (order) => {
+    setOrderToDeliver(order);
+    setShowDeliverModal(true);
+  };
+
+  // New function to handle submitting ratings
+  const handleSubmitRatings = async (ratingsData) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      // Submit each rating individually
+      const ratingPromises = ratingsData.map(rating => 
+        axios.post('http://localhost:8000/api/ratings', rating, { headers })
+      );
+
+      await Promise.all(ratingPromises);
+      
+      toast.success('Ratings submitted successfully!');
+      setShowRatingModal(false);
+      setOrderToRate(null);
+    } catch (error) {
+      console.error('Error submitting ratings:', error);
+      toast.error(error.response?.data?.message || 'Failed to submit ratings');
+      throw error; // Re-throw to handle in modal
+    }
+  };
   
   const confirmApproveOrder = async () => {
     if (!orderToApprove) return;
@@ -146,7 +201,8 @@ const OrdersPage = () => {
       setShowApproveModal(false);
       setOrderToApprove(null);
     } catch (error) {
-      toast.error('Failed to approve order');
+      console.error('Error approving order:', error);
+      toast.error(error.response?.data?.message || 'Failed to approve order');
     }
   };
 
@@ -187,17 +243,105 @@ const OrdersPage = () => {
       setShowDeleteModal(false);
       setOrderToDelete(null);
     } catch (error) {
-      toast.error('Failed to delete order');
+      console.error('Error deleting order:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete order');
     }
   };
 
-  if (userLoading || loading) {
+  // New function to confirm shipping order
+  const confirmShipOrder = async () => {
+    if (!orderToShip) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${orderToShip.product_order_id}/ship`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order marked as shipped successfully');
+      
+      // Update the order status locally
+      setReceivedOrders(prevOrders => 
+        prevOrders.map(o => 
+          o.product_order_id === orderToShip.product_order_id 
+            ? { ...o, order_status: 'Shipped' } 
+            : o
+        )
+      );
+      
+      // Close the modal
+      setShowShipModal(false);
+      setOrderToShip(null);
+    } catch (error) {
+      console.error('Error shipping order:', error);
+      toast.error(error.response?.data?.message || 'Failed to ship order');
+    }
+  };
+
+  // Updated function to confirm delivering order and show rating modal
+  const confirmDeliverOrder = async () => {
+    if (!orderToDeliver) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${orderToDeliver.product_order_id}/deliver`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order marked as delivered successfully');
+      
+      // Update the order status locally in placed orders (buyer's perspective)
+      setPlacedOrders(prevOrders => 
+        prevOrders.map(o => 
+          o.product_order_id === orderToDeliver.product_order_id 
+            ? { ...o, order_status: 'Delivered' } 
+            : o
+        )
+      );
+      
+      // Close the deliver modal
+      setShowDeliverModal(false);
+      
+      // Show rating modal for the delivered order
+      setOrderToRate(orderToDeliver);
+      setShowRatingModal(true);
+      
+      // Clear the order to deliver
+      setOrderToDeliver(null);
+    } catch (error) {
+      console.error('Error delivering order:', error);
+      toast.error(error.response?.data?.message || 'Failed to mark order as delivered');
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="flex flex-col items-center">
-          <FiLoader className="animate-spin text-[#00796B] text-4xl mb-4" />
-          <p className="text-gray-600">Loading your orders...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
       </div>
     );
   }
@@ -250,8 +394,8 @@ const OrdersPage = () => {
         />
       )}
 
-       {/* Delete Order Modal */}
-       {showDeleteModal && orderToDelete && (
+      {/* Delete Order Modal */}
+      {showDeleteModal && orderToDelete && (
         <DeleteOrderModal 
           orderId={orderToDelete.product_order_id}
           orderNumber={orderToDelete.product_order_id}
@@ -260,6 +404,45 @@ const OrdersPage = () => {
             setOrderToDelete(null);
           }}
           onConfirm={confirmDeleteOrder}
+        />
+      )}
+
+      {/* Ship Order Modal */}
+      {showShipModal && orderToShip && (
+        <ShipOrderModal 
+          orderId={orderToShip.product_order_id}
+          orderNumber={orderToShip.product_order_id}
+          onClose={() => {
+            setShowShipModal(false);
+            setOrderToShip(null);
+          }}
+          onConfirm={confirmShipOrder}
+        />
+      )}
+
+      {/* Deliver Order Modal */}
+      {showDeliverModal && orderToDeliver && (
+        <DeliverOrderModal 
+          orderId={orderToDeliver.product_order_id}
+          orderNumber={orderToDeliver.product_order_id}
+          onClose={() => {
+            setShowDeliverModal(false);
+            setOrderToDeliver(null);
+          }}
+          onConfirm={confirmDeliverOrder}
+        />
+      )}
+
+      {/* Product Rating Modal */}
+      {showRatingModal && orderToRate && (
+        <ProductRatingModal 
+          order={orderToRate}
+          isOpen={showRatingModal}
+          onClose={() => {
+            setShowRatingModal(false);
+            setOrderToRate(null);
+          }}
+          onSubmitRatings={handleSubmitRatings}
         />
       )}
       
@@ -337,8 +520,11 @@ const OrdersPage = () => {
           onNavigateToDetails={navigateToOrderDetails}
           onApproveOrder={handleApproveOrder}
           onDeleteOrder={handleDeleteOrder}
+          onShipOrder={handleShipOrder}
+          onDeliverOrder={handleDeliverOrder}
           getBuyerInfo={getBuyerInfo}
           getSellerInfo={getSellerInfo}
+          currentUser={currentUser}
         />
       ) : (
         <div className="bg-white shadow-md rounded-lg p-8 text-center">

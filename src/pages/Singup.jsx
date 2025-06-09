@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Shield, Activity, Users, User, Phone, MapPin, Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiPhone, FiMapPin, FiBriefcase, FiEye, FiEyeOff } from 'react-icons/fi';
+import logo from "../assets/logo1.png"
+
 
 const SignupPage = () => {
   const [formData, setFormData] = useState({
@@ -18,7 +20,9 @@ const SignupPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -82,280 +86,390 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-50">
-      {/* Form Section */}
-      <div className="w-full md:w-1/2 flex flex-col justify-center p-6 md:p-12 overflow-y-auto">
-        <div className="w-full max-w-md mx-auto">
-          {/* Logo and Header */}
-          <div className="text-center mb-8">
-            <img 
-              src="/logo.png" 
-              alt="HealthLink Logo" 
-              className="h-12 mx-auto"
-              onError={(e) => {
-                console.error("Logo failed to load");
-                e.target.style.display = 'none';
-              }}
-            />
-            <h1 className="text-2xl font-bold mt-4">Create Healthcare Account</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+        
+        {/* Left Section - Hero Content */}
+        <div className="hidden lg:flex flex-col justify-center space-y-8 px-8">
+          <div className="space-y-6">
+            <div className="inline-flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-[#00796B]/20">
+              <div className="w-2 h-2 bg-[#00796B] rounded-full animate-pulse"></div>
+              <span className="text-[#00796B] font-medium text-sm">Join Our Network</span>
+            </div>
+            
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
+              Create Your
+              <span className="block text-[#00796B]">HealthLink Account</span>
+            </h1>
+            
+            <p className="text-xl text-gray-600 leading-relaxed">
+              Join thousands of healthcare professionals in Algeria's most trusted medical networking platform.
+            </p>
           </div>
 
-          {/* Error Message */}
-          {errors.server && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-              {errors.server}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
-            {/* Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">First Name*</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiUser className="text-gray-400" />
-                  </div>
-                  <input
-                    name="first_name"
-                    value={formData.first_name}
-                    onChange={handleChange}
-                    placeholder="John"
-                    className={`w-full pl-10 p-2 border rounded ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`}
-                    required
-                  />
-                </div>
-                {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+          {/* Features */}
+          <div className="grid gap-4">
+            <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
+              <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
+                <Shield className="w-6 h-6 text-[#00796B]" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Last Name*</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiUser className="text-gray-400" />
-                  </div>
-                  <input
-                    name="last_name"
-                    value={formData.last_name}
-                    onChange={handleChange}
-                    placeholder="Doe"
-                    className={`w-full pl-10 p-2 border rounded ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`}
-                    required
-                  />
-                </div>
-                {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+                <h3 className="font-semibold text-gray-900">Quick Approval</h3>
+                <p className="text-sm text-gray-600">Get approved within 1-2 business days</p>
               </div>
             </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Email*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiMail className="text-gray-400" />
-                </div>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="john.doe@example.com"
-                  className={`w-full pl-10 p-2 border rounded ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-                  required
-                />
+            
+            <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
+              <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
+                <Activity className="w-6 h-6 text-[#00796B]" />
               </div>
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Phone Number*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiPhone className="text-gray-400" />
-                </div>
-                <input
-                  name="phone_number"
-                  value={formData.phone_number}
-                  onChange={handleChange}
-                  placeholder="05 00 00 00 00"
-                  className={`w-full pl-10 p-2 border rounded ${errors.phone_number ? 'border-red-500' : 'border-gray-300'}`}
-                  required
-                />
-              </div>
-              {errors.phone_number && <p className="text-red-500 text-xs mt-1">{errors.phone_number}</p>}
-            </div>
-
-            {/* Wilaya */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Wilaya*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiMapPin className="text-gray-400" />
-                </div>
-                <input
-                  name="wilaya"
-                  value={formData.wilaya}
-                  onChange={handleChange}
-                  placeholder="Algiers"
-                  className={`w-full pl-10 p-2 border rounded ${errors.wilaya ? 'border-red-500' : 'border-gray-300'}`}
-                  required
-                />
-              </div>
-              {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
-            </div>
-
-            {/* Role - Updated to match backend validation */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Role*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiBriefcase className="text-gray-400" />
-                </div>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full pl-10 p-2 border border-gray-300 rounded appearance-none"
-                  required
-                >
-                  <option value="Dentist">Dentist</option>
-                  <option value="Doctor">Doctor</option>
-                  <option value="Labo">Labo</option>
-                  <option value="Pharmacist">Pharmacist</option>
-                  <option value="Supplier">Supplier</option>
-                </select>
+              <div>
+                <h3 className="font-semibold text-gray-900">Nationwide Network</h3>
+                <p className="text-sm text-gray-600">Connect with suppliers across Algeria</p>
               </div>
             </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Password*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiLock className="text-gray-400" />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="At least 6 characters"
-                  className={`w-full pl-10 pr-10 p-2 border rounded ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? <FiEyeOff className="text-gray-400" /> : <FiEye className="text-gray-400" />}
-                </button>
+            
+            <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
+              <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-[#00796B]" />
               </div>
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Confirm Password*</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiLock className="text-gray-400" />
-                </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="password_confirmation"
-                  value={formData.password_confirmation}
-                  onChange={handleChange}
-                  placeholder="Confirm your password"
-                  className={`w-full pl-10 pr-10 p-2 border rounded ${errors.password_confirmation ? 'border-red-500' : 'border-gray-300'}`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={toggleConfirmPasswordVisibility}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showConfirmPassword ? <FiEyeOff className="text-gray-400" /> : <FiEye className="text-gray-400" />}
-                </button>
-              </div>
-              {errors.password_confirmation && <p className="text-red-500 text-xs mt-1">{errors.password_confirmation}</p>}
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="terms"
-                  name="terms"
-                  type="checkbox"
-                  className="focus:ring-[#00796B] h-4 w-4 text-[#00796B] border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div className="ml-3 text-sm">
-                <label htmlFor="terms" className="font-medium text-gray-700">
-                  I agree to the <a href="#" className="text-[#00796B] hover:text-[#00695C]">Terms of Service</a> and <a href="#" className="text-[#00796B] hover:text-[#00695C]">Privacy Policy</a>
-                </label>
+              <div>
+                <h3 className="font-semibold text-gray-900">Verified Professionals</h3>
+                <p className="text-sm text-gray-600">Join verified healthcare professionals only</p>
               </div>
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full py-2 px-4 bg-[#00796B] text-white rounded hover:bg-[#00695C] transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : 'Register'}
-            </button>
-          </form>
-
-          {/* Login Link */}
-          <p className="text-center mt-4">
-            Already have an account?{' '}
-            <a href="/login" className="text-[#00796B] hover:text-[#00695C] font-medium">Login here</a>
-          </p>
+          </div>
         </div>
-      </div>
 
-      {/* Image/Info Section */}
-      <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-[#00796B] to-[#004D40] text-white p-12">
-        <div className="h-full flex flex-col justify-center">
-          <h2 className="text-3xl font-bold mb-6">Join HealthLink Network</h2>
-          <ul className="space-y-4">
-            <li className="flex items-start">
-              <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Secure healthcare professional network</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Connect with medical suppliers nationwide</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>HIPAA-compliant secure platform</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Quick approval process (1-2 business days)</span>
-            </li>
-          </ul>
+        {/* Right Section - Signup Form */}
+        <div className="w-full max-w-md mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
+            {/* Header */}
+            <div className="px-8 pt-8 pb-6 bg-gradient-to-r from-[#00796B]/5 to-[#004D40]/5">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-4">
+                  <img 
+                    src= {logo} 
+                    alt="HealthLink Logo" 
+                    className="h-20 w-20 object-contain"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <div className="text-[#00796B] font-bold text-xl" style={{display: 'none'}}>H</div>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Join HealthLink</h2>
+                <p className="text-gray-600 mt-1">Create your professional account</p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="px-8 pb-8">
+              {/* Error Message */}
+              {errors.server && (
+                <div className="mb-6 p-4 rounded-xl flex items-start bg-red-50 border border-red-200 text-red-700">
+                  <AlertCircle className="flex-shrink-0 h-5 w-5 mt-0.5 mr-3" />
+                  <div>
+                    <p className="font-semibold text-sm">Registration Failed</p>
+                    <p className="text-sm mt-1">{errors.server}</p>
+                  </div>
+                </div>
+              )}
+
+              <div onSubmit={handleSubmit} className="space-y-6">
+                {/* Name Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <User className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type="text"
+                        name="first_name"
+                        value={formData.first_name}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.first_name ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="John"
+                        required
+                      />
+                    </div>
+                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Last Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <User className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type="text"
+                        name="last_name"
+                        value={formData.last_name}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.last_name ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="Doe"
+                        required
+                      />
+                    </div>
+                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+                  </div>
+                </div>
+
+                {/* Email Field */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="text-gray-400 h-5 w-5" />
+                    </div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                        errors.email ? 'border-red-300' : 'border-gray-200'
+                      }`}
+                      placeholder="john.doe@example.com"
+                      required
+                    />
+                  </div>
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                </div>
+
+                {/* Phone and Wilaya */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Phone Number
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Phone className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type="text"
+                        name="phone_number"
+                        value={formData.phone_number}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.phone_number ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="05 00 00 00 00"
+                        required
+                      />
+                    </div>
+                    {errors.phone_number && <p className="text-red-500 text-xs mt-1">{errors.phone_number}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Wilaya
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <MapPin className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type="text"
+                        name="wilaya"
+                        value={formData.wilaya}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.wilaya ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="Algiers"
+                        required
+                      />
+                    </div>
+                    {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
+                  </div>
+                </div>
+
+                {/* Role Field */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Professional Role
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Briefcase className="text-gray-400 h-5 w-5" />
+                    </div>
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors appearance-none bg-white"
+                      required
+                    >
+                      <option value="Dentist">Dentist</option>
+                      <option value="Doctor">Doctor</option>
+                      <option value="Labo">Labo</option>
+                      <option value="Pharmacist">Pharmacist</option>
+                      <option value="Supplier">Supplier</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Password Fields */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.password ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="At least 6 characters"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                        onClick={togglePasswordVisibility}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="text-gray-400 hover:text-gray-600 h-5 w-5" />
+                        ) : (
+                          <Eye className="text-gray-400 hover:text-gray-600 h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock className="text-gray-400 h-5 w-5" />
+                      </div>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="password_confirmation"
+                        value={formData.password_confirmation}
+                        onChange={handleChange}
+                        className={`w-full pl-12 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                          errors.password_confirmation ? 'border-red-300' : 'border-gray-200'
+                        }`}
+                        placeholder="Confirm your password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                        onClick={toggleConfirmPasswordVisibility}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="text-gray-400 hover:text-gray-600 h-5 w-5" />
+                        ) : (
+                          <Eye className="text-gray-400 hover:text-gray-600 h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                    {errors.password_confirmation && <p className="text-red-500 text-xs mt-1">{errors.password_confirmation}</p>}
+                  </div>
+                </div>
+
+                {/* Terms and Conditions */}
+                <div className="flex items-start space-x-3">
+                  <div className="flex items-center h-5 mt-1">
+                    <input
+                      id="terms"
+                      name="terms"
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="h-4 w-4 text-[#00796B] focus:ring-[#00796B] border-gray-300 rounded"
+                      required
+                    />
+                  </div>
+                  <div className="text-sm">
+                    <label htmlFor="terms" className="text-gray-700">
+                      I agree to the{' '}
+                      <a href="#" className="text-[#00796B] hover:text-[#00695C] font-medium">
+                        Terms of Service
+                      </a>{' '}
+                      and{' '}
+                      <a href="#" className="text-[#00796B] hover:text-[#00695C] font-medium">
+                        Privacy Policy
+                      </a>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={isLoading || !acceptedTerms}
+                  onClick={handleSubmit}
+                  className={`w-full py-3 px-4 bg-[#00796B] text-white rounded-xl hover:bg-[#00695C] focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:ring-offset-2 transition-all duration-200 font-semibold ${
+                    isLoading || !acceptedTerms ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-0.5'
+                  }`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : 'Register'}
+                </button>
+              </div>
+
+              {/* Login Link */}
+              <div className="mt-6 text-center">
+                <p className="text-gray-600">
+                  Already have an account?{' '}
+                  <a 
+                    href="/login" 
+                    className="text-[#00796B] hover:text-[#00695C] font-semibold"
+                  >
+                    Login here
+                  </a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Features - Only visible on small screens */}
+          <div className="lg:hidden mt-8 space-y-4">
+            <div className="flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-lg">
+              <Shield className="w-5 h-5 text-[#00796B] flex-shrink-0" />
+              <span className="text-sm text-gray-700">Quick 1-2 day approval process</span>
+            </div>
+            <div className="flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-lg">
+              <Users className="w-5 h-5 text-[#00796B] flex-shrink-0" />
+              <span className="text-sm text-gray-700">Join verified professionals network</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
