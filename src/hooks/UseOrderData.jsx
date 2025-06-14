@@ -10,137 +10,142 @@ export const useOrderData = () => {
   const [userDetails, setUserDetails] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Helper function to format full name from first and last name
   const formatFullName = (firstName, lastName) => {
-    if (firstName && lastName) {
-      return `${firstName} ${lastName}`;
-    } else if (firstName) {
-      return firstName;
-    } else if (lastName) {
-      return lastName;
-    } else {
-      return 'Unknown';
-    }
+    if (firstName && lastName) return `${firstName} ${lastName}`;
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+    return 'Unknown';
   };
 
-  // Function to fetch user details by ID
   const fetchUserDetails = async (userId) => {
-    // Check if we already have this user's details cached
-    if (userDetails[userId]) {
-      return userDetails[userId];
-    }
+    if (!userId || userDetails[userId]) return userDetails[userId];
 
     try {
       const token = localStorage.getItem('authToken');
       if (!token) return null;
 
       const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       };
 
       const response = await axios.get(`http://localhost:8000/api/users/${userId}`, { headers });
       const userData = response.data.user || response.data;
-      
-      // Cache the user details
-      setUserDetails(prev => ({
+
+      setUserDetails((prev) => ({
         ...prev,
-        [userId]: userData
+        [userId]: userData,
       }));
 
       return userData;
     } catch (error) {
-      console.log(`Failed to fetch user details for ID ${userId}:`, error);
+      console.error(`Failed to fetch user details for ID ${userId}:`, error);
       return null;
     }
   };
 
-  // Helper function to safely get buyer/seller info
   const getBuyerInfo = (order) => {
-    // First check if buyer object is nested in the order
     const buyer = order.buyer || order.customer || order.user || order.buyer_info;
-    
+
     if (buyer) {
       return {
         name: formatFullName(buyer.first_name, buyer.last_name),
         email: buyer.email || 'No email',
-        phone_number: buyer.phone_number,
-        wilaya: buyer.wilaya
+        phone_number: buyer.phone_number || 'N/A',
+        wilaya: buyer.wilaya || 'N/A',
       };
     }
-    
-    // If no nested buyer object, check if we have cached user details
+
     if (order.buyer_id && userDetails[order.buyer_id]) {
       const buyerUser = userDetails[order.buyer_id];
       return {
         name: formatFullName(buyerUser.first_name, buyerUser.last_name),
         email: buyerUser.email || 'No email',
-        phone_number: buyerUser.phone_number,
-        wilaya: buyerUser.wilaya
+        phone_number: buyerUser.phone_number || 'N/A',
+        wilaya: buyerUser.wilaya || 'N/A',
       };
     }
-    
-    // Return default if no buyer info available
+
     return {
-      name: 'Loading...',
-      email: 'Loading...',
-      phone_number: null,
-      wilaya: null
+      name: 'Unknown',
+      email: 'No email',
+      phone_number: 'N/A',
+      wilaya: 'N/A',
     };
   };
 
-  const getSellerInfo = (order) => {
-    // Check if seller object is nested in the order
+  const getSellerInfo = (order, item = null) => {
+    // For received orders, use currentUser as the seller
+    if (order.isReceivedOrder && currentUser) {
+      return {
+        name: formatFullName(currentUser.first_name, currentUser.last_name),
+        email: currentUser.email || 'No email',
+        phone_number: currentUser.phone_number || 'N/A',
+        wilaya: currentUser.wilaya || 'N/A',
+      };
+    }
+
+    // Check for seller at order level
     const seller = order.seller || order.vendor || order.shop_owner || order.seller_info;
-    
     if (seller) {
       return {
         name: formatFullName(seller.first_name, seller.last_name),
         email: seller.email || 'No email',
-        phone_number: seller.phone_number,
-        wilaya: seller.wilaya
+        phone_number: seller.phone_number || 'N/A',
+        wilaya: seller.wilaya || 'N/A',
       };
     }
-    
-    // If no nested seller object, check if we have cached user details
+
+    // Check for seller at item level
+    if (item && item.seller_id && userDetails[item.seller_id]) {
+      const sellerUser = userDetails[item.seller_id];
+      return {
+        name: formatFullName(sellerUser.first_name, sellerUser.last_name),
+        email: sellerUser.email || 'No email',
+        phone_number: sellerUser.phone_number || 'N/A',
+        wilaya: sellerUser.wilaya || 'N/A',
+      };
+    }
+
+    // Check for seller_id at order level
     if (order.seller_id && userDetails[order.seller_id]) {
       const sellerUser = userDetails[order.seller_id];
       return {
         name: formatFullName(sellerUser.first_name, sellerUser.last_name),
         email: sellerUser.email || 'No email',
-        phone_number: sellerUser.phone_number,
-        wilaya: sellerUser.wilaya
+        phone_number: sellerUser.phone_number || 'N/A',
+        wilaya: sellerUser.wilaya || 'N/A',
       };
     }
-    
+
     return {
-      name: 'Loading...',
-      email: 'Loading...',
-      phone_number: null,
-      wilaya: null
+      name: 'Unknown',
+      email: 'No email',
+      phone_number: 'N/A',
+      wilaya: 'N/A',
     };
   };
 
-  // Function to fetch missing user details for orders
   const fetchMissingUserDetails = async (orders) => {
     const missingUserIds = new Set();
-    
-    orders.forEach(order => {
-      // Check if we need buyer details
+
+    orders.forEach((order) => {
       if (order.buyer_id && !order.buyer && !userDetails[order.buyer_id]) {
         missingUserIds.add(order.buyer_id);
       }
-      // Check if we need seller details
       if (order.seller_id && !order.seller && !userDetails[order.seller_id]) {
         missingUserIds.add(order.seller_id);
       }
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item) => {
+          if (item.seller_id && !userDetails[item.seller_id]) {
+            missingUserIds.add(item.seller_id);
+          }
+        });
+      }
     });
 
-    // Fetch details for all missing users
-    const fetchPromises = Array.from(missingUserIds).map(userId => 
-      fetchUserDetails(userId)
-    );
-    
+    const fetchPromises = Array.from(missingUserIds).map((userId) => fetchUserDetails(userId));
     await Promise.all(fetchPromises);
   };
 
@@ -150,57 +155,62 @@ export const useOrderData = () => {
         const token = localStorage.getItem('authToken');
         if (!token) {
           toast.error('Please login to view your orders');
+          setError('Authentication required');
+          setLoading(false);
           return;
         }
 
         const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         };
 
         setLoading(true);
-        
-        // Get current user data first
+
+        // Fetch current user
         const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
-        const userData = userResponse.data;
+        const userData = userResponse.data.user || userResponse.data;
         setCurrentUser(userData);
-        
-        // Only fetch placed orders if user is not a supplier
+
+        // Fetch placed orders (for non-suppliers)
+        let buyerOrders = [];
         if (userData.role !== 'Supplier') {
           try {
             const buyerResponse = await axios.get('http://localhost:8000/api/buyer-orders', { headers });
-            const buyerOrders = buyerResponse.data.orders || buyerResponse.data;
-            console.log('Buyer orders response:', buyerOrders);
-            setPlacedOrders(Array.isArray(buyerOrders) ? buyerOrders : []);
+            buyerOrders = buyerResponse.data.orders || buyerResponse.data || [];
+            if (!Array.isArray(buyerOrders)) buyerOrders = [];
+            buyerOrders = buyerOrders.map((order) => ({ ...order, isReceivedOrder: false }));
+            setPlacedOrders(buyerOrders);
           } catch (buyerError) {
-            console.log('Error fetching buyer orders:', buyerError);
+            console.error('Error fetching buyer orders:', buyerError);
             setPlacedOrders([]);
           }
-        } else {
-          // Suppliers cannot place orders
-          setPlacedOrders([]);
         }
-        
-        // Fetch orders received by the user (seller orders)
+
+        // Fetch received orders (for sellers)
+        let sellerOrders = [];
         try {
           const userId = userData.id || userData.user_id;
           const sellerResponse = await axios.get(`http://localhost:8000/api/product-orders/seller/${userId}`, { headers });
-          const sellerOrders = sellerResponse.data.orders || sellerResponse.data;
-          console.log('Seller orders response:', sellerOrders);
-          setReceivedOrders(Array.isArray(sellerOrders) ? sellerOrders : []);
+          sellerOrders = sellerResponse.data.orders || sellerResponse.data || [];
+          if (!Array.isArray(sellerOrders)) sellerOrders = [];
+          sellerOrders = sellerOrders.map((order) => ({ ...order, isReceivedOrder: true }));
+          setReceivedOrders(sellerOrders);
         } catch (sellerError) {
-          console.log('Error fetching seller orders:', sellerError);
+          console.error('Error fetching seller orders:', sellerError);
           setReceivedOrders([]);
         }
-        
-        // Note: fetchMissingUserDetails will be called in a separate useEffect
-        
+
+        // Fetch user details for all orders
+        await fetchMissingUserDetails([...buyerOrders, ...sellerOrders]);
+
       } catch (error) {
+        console.error('Error fetching orders:', error);
         setError(error.response?.data?.message || 'Failed to load orders');
+        toast.error('Failed to load orders');
         if (error.response?.status === 401) {
           localStorage.removeItem('authToken');
         }
-        toast.error('Failed to load orders');
       } finally {
         setLoading(false);
       }
@@ -208,13 +218,6 @@ export const useOrderData = () => {
 
     fetchOrders();
   }, []);
-
-  // Add useEffect to fetch missing user details when orders change
-  useEffect(() => {
-    if (placedOrders.length > 0 || receivedOrders.length > 0) {
-      fetchMissingUserDetails([...placedOrders, ...receivedOrders]);
-    }
-  }, [placedOrders, receivedOrders]);
 
   return {
     placedOrders,
@@ -226,6 +229,6 @@ export const useOrderData = () => {
     setPlacedOrders,
     setReceivedOrders,
     getBuyerInfo,
-    getSellerInfo
+    getSellerInfo,
   };
 };

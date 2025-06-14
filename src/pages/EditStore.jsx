@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiUpload, FiSave, FiPlusCircle, FiMapPin, FiPhone, FiMail, FiTrash2 } from "react-icons/fi";
+import { FiUpload, FiSave, FiMapPin, FiPhone, FiArrowLeft } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -9,16 +9,13 @@ const EditStorePage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
-  const [logoFile, setLogoFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState("");
+ 
   
   const [storeInfo, setStoreInfo] = useState({
     store_name: "",
-    description: "",
     phone: "",
-    email: "",
     address: "",
-    specialties: [""] // Initialize with at least one empty specialty
+    owner_id: ""
   });
 
   // Fetch store data on component mount
@@ -34,24 +31,15 @@ const EditStorePage = () => {
         });
         
         const storeData = response.data?.data || response.data;
-        
-        // Safely handle specialties - default to [""] if undefined
-        const specialties = storeData?.specialties?.length > 0 
-          ? storeData.specialties 
-          : [""];
 
         setStoreInfo({
           store_name: storeData?.store_name || "",
-          description: storeData?.description || "",
           phone: storeData?.phone || "",
-          email: storeData?.email || "",
           address: storeData?.address || "",
-          specialties: specialties
+          owner_id: storeData?.owner_id || ""
         });
 
-        if (storeData?.logo_url) {
-          setLogoPreview(storeData.logo_url);
-        }
+       
 
       } catch (error) {
         console.error("Error fetching store data:", error);
@@ -65,60 +53,49 @@ const EditStorePage = () => {
     fetchStoreData();
   }, [id, navigate]);
 
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStoreInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+ 
+
+  const validateForm = () => {
+    const requiredFields = ['store_name', 'phone', 'address'];
+    const missingFields = requiredFields.filter(field => !storeInfo[field]);
+    
+    if (missingFields.length > 0) {
+      toast.error(`Please fill out all required fields: ${missingFields.join(', ')}`);
+      return false;
     }
-  };
-
-  const addSpecialty = () => {
-    setStoreInfo(prev => ({
-      ...prev,
-      specialties: [...prev.specialties, ""]
-    }));
-  };
-
-  const removeSpecialty = (index) => {
-    setStoreInfo(prev => ({
-      ...prev,
-      specialties: prev.specialties.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleSpecialtyChange = (index, value) => {
-    const newSpecialties = [...storeInfo.specialties];
-    newSpecialties[index] = value;
-    setStoreInfo(prev => ({ ...prev, specialties: newSpecialties }));
+    
+    const phonePattern = /^\+?[\d\s\-()]{10,15}$/;
+    if (!phonePattern.test(storeInfo.phone)) {
+      toast.error("Please enter a valid phone number (maximum 15 characters)");
+      return false;
+    }
+    
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
   
     try {
       const formData = new FormData();
       formData.append('_method', 'PUT');
       formData.append('store_name', storeInfo.store_name);
-      formData.append('description', storeInfo.description);
       formData.append('phone', storeInfo.phone);
-      formData.append('email', storeInfo.email);
       formData.append('address', storeInfo.address);
-      
-      storeInfo.specialties.forEach(spec => {
-        if (spec.trim()) formData.append('specialties[]', spec);
-      });
+      formData.append('owner_id', storeInfo.owner_id);
   
-      if (logoFile) {
-        formData.append('logo', logoFile);
-      }
+
 
       const authToken = localStorage.getItem('authToken');
       const response = await axios.post(`http://localhost:8000/api/store/${id}`, formData, {
@@ -176,9 +153,18 @@ const EditStorePage = () => {
       <div className="flex-1 flex flex-col">
         <main className="p-6 flex-1">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">
-              Edit Medical Store
-            </h1>
+            <div className="flex items-center">
+              <button 
+                onClick={() => navigate(-1)}
+                className="mr-4 p-2 rounded-full hover:bg-gray-200 transition-colors"
+                aria-label="Go back"
+              >
+                <FiArrowLeft size={20} />
+              </button>
+              <h1 className="text-2xl font-bold text-gray-800">
+                Edit Medical Store
+              </h1>
+            </div>
             <button 
               onClick={handleSubmit}
               disabled={isLoading}
@@ -201,149 +187,59 @@ const EditStorePage = () => {
               {/* Left Column */}
               <div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Store Name*</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Store Name<span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     name="store_name"
                     value={storeInfo.store_name}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B]"
-                    placeholder="MedEquip Solutions"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B] focus:outline-none"
+                    placeholder="MediCare Pharmacy"
                     required
                   />
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
-                  <textarea
-                    name="description"
-                    value={storeInfo.description}
-                    onChange={handleInputChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B]"
-                    placeholder="Specializing in diagnostic imaging equipment and surgical supplies..."
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Medical Specialties*</label>
-                   <div className="space-y-2">
-                    {/* Safely map over specialties - will always have at least one item */}
-                    {storeInfo.specialties?.map((specialty, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                          type="text"
-                          value={specialty}
-                          onChange={(e) => handleSpecialtyChange(index, e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00796B] focus:border-[#00796B]"
-                          placeholder="e.g., Cardiology, Radiology"
-                          required={index === 0}
-                      />
-                      {storeInfo.specialties.length > 1 && (
-                      <button
-                      type="button"
-                      onClick={() => removeSpecialty(index)}
-                      className="p-2 text-red-500 hover:text-red-700"
-                      >
-                    <FiTrash2 />
-                    </button>
-                    )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number<span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-[#00796B] focus-within:border-[#00796B]">
+                    <FiPhone className="text-gray-400 mr-2" />
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={storeInfo.phone}
+                      onChange={handleInputChange}
+                      className="flex-1 focus:outline-none"
+                      placeholder="+1234567890"
+                      maxLength={15}
+                      required
+                    />
                   </div>
-                  ))}
-        <button
-          type="button"
-          onClick={addSpecialty}
-          className="flex items-center text-sm text-[#00796B] hover:text-[#00695C]"
-        >
-          <FiPlusCircle className="mr-1" /> Add Another Specialty
-        </button>
-      </div>
+                  <p className="text-xs text-gray-500 mt-1">Maximum 15 characters</p>
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Store Logo</label>
-                  <div className="flex items-center">
-                    <label className="cursor-pointer">
-                      <div className="border-2 border-dashed border-gray-300 rounded-md p-4 flex flex-col items-center hover:border-[#00796B] transition-colors">
-                        {logoPreview ? (
-                          <div className="relative">
-                            <img 
-                              src={logoPreview} 
-                              alt="Store logo preview" 
-                              className="w-20 h-20 object-contain"
-                            />
-                          </div>
-                        ) : (
-                          <>
-                            <FiUpload className="text-gray-400 text-xl mb-1" />
-                            <span className="text-sm text-gray-500">Click to upload logo</span>
-                            <span className="text-xs text-gray-400">(JPEG, PNG, max 2MB)</span>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
+            </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number*</label>
-                    <div className="flex items-center border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-[#00796B]">
-                      <FiPhone className="text-gray-400 mr-2" />
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={storeInfo.phone}
-                        onChange={handleInputChange}
-                        className="flex-1 focus:outline-none"
-                        placeholder="+1234567890"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email*</label>
-                    <div className="flex items-center border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-[#00796B]">
-                      <FiMail className="text-gray-400 mr-2" />
-                      <input
-                        type="email"
-                        name="email"
-                        value={storeInfo.email}
-                        onChange={handleInputChange}
-                        className="flex-1 focus:outline-none"
-                        placeholder="contact@example.com"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address*</label>
-                    <div className="flex items-start border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-[#00796B]">
-                      <FiMapPin className="text-gray-400 mr-2 mt-1" />
-                      <textarea
-                        name="address"
-                        value={storeInfo.address}
-                        onChange={handleInputChange}
-                        rows={2}
-                        className="flex-1 focus:outline-none"
-                        placeholder="123 Medical St, Health City, HC 12345"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
+            {/* Full width address field */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address<span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-start border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-[#00796B] focus-within:border-[#00796B]">
+                <FiMapPin className="text-gray-400 mr-2 mt-1" />
+                <textarea
+                  name="address"
+                  value={storeInfo.address}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className="flex-1 focus:outline-none"
+                  placeholder="123 Health St, City"
+                  required
+                />
               </div>
             </div>
           </div>

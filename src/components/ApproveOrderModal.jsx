@@ -17,7 +17,7 @@ const ApproveOrderModal = ({ orderId, orderNumber, onClose, onConfirm }) => {
         
         <h3 className="text-lg font-bold text-gray-900 mb-2">Approve Order</h3>
         <p className="text-gray-600 mb-6">
-          Are you sure you want to approve order <span className="font-semibold">#{orderNumber}</span>? This will update the order status to "Processing".
+          Are you sure you want to approve the order ? This will update the order status to "Processing".
         </p>
         
         <div className="flex justify-end space-x-3">

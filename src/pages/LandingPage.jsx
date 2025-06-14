@@ -1,25 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FiShoppingCart, 
   FiPackage, 
-  FiStar, 
-  FiChevronRight,
-  FiTrendingUp,
-  FiPercent,
-  FiClock,
-  FiAward,
-  FiShield,
-  FiX,
-  FiLogIn
+  FiChevronRight, 
+  FiSearch, 
+  FiShield, 
+  FiShoppingCart, 
+  FiTrendingUp 
 } from 'react-icons/fi';
 import axios from 'axios';
+
+// Import components
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
 import StoreCard from '../components/StoreCard';
+import HeroSection from '../components/HeroSection';
+import FeaturedCategoriesSection from '../components/FeaturedCategories';
+import SpecialOffersSection from '../components/SpecialOffers';
+import GettingStartedSection from '../components/GettingStarted';
+import SectionHeader from '../components/SectionHeader';
+import ConnectionModal from '../components/ConnectionModal';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SearchComponent from '../components/SearchComponent'; // Import SearchComponent
+import AddToCartModal from '../components/AddToCartModal'; // Import AddToCartModal
 
 const LandingPage = () => {
   const navigate = useNavigate();
+
+  // State variables
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [topStores, setTopStores] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -30,28 +38,36 @@ const LandingPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState(null);
-  
-  // Check login status and fetch user data on component mount
+
+  // Search-related state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [sortBy, setSortBy] = useState('product_name');
+  const [imageSearchResults, setImageSearchResults] = useState([]);
+  const [hasImageSearched, setHasImageSearched] = useState(false);
+  const [cartItems, setCartItems] = useState([]);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Check login status
   useEffect(() => {
     const checkLoginStatus = async () => {
       const token = localStorage.getItem('authToken');
       setIsLoggedIn(!!token);
-      
+
       if (token) {
         try {
           const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
           };
-          
-          // Fetch current user data (same as in store listing)
           const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
           const currentUser = userResponse.data;
           setCurrentUserId(currentUser.id);
           setCurrentUserRole(currentUser.role);
         } catch (error) {
           console.error('Error fetching user data:', error);
-          // If token is invalid, remove it
           if (error.response?.status === 401) {
             localStorage.removeItem('authToken');
             setIsLoggedIn(false);
@@ -61,149 +77,157 @@ const LandingPage = () => {
         }
       }
     };
-    
+
     checkLoginStatus();
   }, []);
-  
-  // Fetch products and stores from API
+
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        const headers = token ? {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        } : {};
-        
-        // Fetch products from API
+        const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : {};
+
         const productsResponse = await axios.get('http://localhost:8000/api/products', { headers });
-        const productsData = productsResponse.data;
-        
-        // Fetch stores from API
         const storesResponse = await axios.get('http://localhost:8000/api/stores', { headers });
-        const storesData = storesResponse.data;
-        
-        // For categories, we'll use mock data for now since it's not in the API
+
         const mockCategories = [
-          {
-            id: 1,
-            name: 'Medications',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 2,
-            name: 'Medical Equipment',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 3,
-            name: 'Lab Supplies',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 4,
-            name: 'Healthcare Devices',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 5,
-            name: 'Personal Protective Equipment',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 6,
-            name: 'Supplements',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          }
+          { id: 1, name: 'Medications', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+          { id: 2, name: 'Medical Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+          { id: 3, name: 'Lab Supplies', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+          { id: 4, name: 'Healthcare Devices', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+          { id: 5, name: 'Personal Protective Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+          { id: 6, name: 'Supplements', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
         ];
-        
-        // Process store data to match StoreCard expected format (same as store listing)
-        const processedStores = (storesData || []).map(store => ({
+
+        const processedStores = (storesResponse.data || []).map((store) => ({
           id: store.id,
           owner_id: store.owner_id,
-          name: store.store_name,  // Backend uses store_name, frontend expects name
+          name: store.store_name,
           description: store.description,
           phone: store.phone,
           email: store.email,
           address: store.address,
           logo_path: store.logo,
           is_verified: store.is_verified,
-          specialties: store.specialties || ['Medical Equipment', 'Healthcare Devices'], // Mock specialties if not available
-          isOwner: currentUserId ? store.owner_id === parseInt(currentUserId) : false // Determine ownership
+          specialties: store.specialties || ['Medical Equipment', 'Healthcare Devices'],
+          isOwner: currentUserId ? store.owner_id === parseInt(currentUserId) : false,
         }));
-        
-        setFeaturedProducts(productsData || []);
+
+        setFeaturedProducts(productsResponse.data || []);
         setTopStores(processedStores);
         setCategories(mockCategories);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
-        // If API fails, fall back to mock data
         fallbackToMockData();
       }
     };
-    
-    // Only fetch data after we've determined the current user
+
     if (currentUserId !== null || !isLoggedIn) {
       fetchData();
     }
-  }, [currentUserId, isLoggedIn]); // Re-fetch when user ID changes
+  }, [currentUserId, isLoggedIn]);
 
-  // Fallback function to use mock data if API fails
+  // Fallback to mock data
   const fallbackToMockData = () => {
-    // Mock categories (same as in the useEffect)
     const mockCategories = [
-      {
-        id: 1,
-        name: 'Medications',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 2,
-        name: 'Medical Equipment',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 3,
-        name: 'Lab Supplies',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 4,
-        name: 'Healthcare Devices',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 5,
-        name: 'Personal Protective Equipment',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 6,
-        name: 'Supplements',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      }
+      { id: 1, name: 'Medications', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+      { id: 2, name: 'Medical Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+      { id: 3, name: 'Lab Supplies', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+      { id: 4, name: 'Healthcare Devices', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+      { id: 5, name: 'Personal Protective Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
+      { id: 6, name: 'Supplements', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
     ];
-    
+
     setCategories(mockCategories);
     setTopStores([]);
     setFeaturedProducts([]);
     setLoading(false);
   };
 
-  // Handle store click - show modal or navigate to store page
+  // Handle image search results
+  const handleImageSearchResults = (results) => {
+    console.log('Image search results received:', results);
+    setImageSearchResults(results);
+    setHasImageSearched(true);
+
+    if (results && results.length > 0) {
+      setSearchQuery('');
+    }
+  };
+
+  // Search and filter logic
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...featuredProducts];
+
+    if (hasImageSearched && imageSearchResults.length > 0) {
+      const imageResultIds = imageSearchResults.map((result) => result.product_id || result.id);
+      filtered = filtered.filter((product) =>
+        imageResultIds.includes(product.product_id || product.id)
+      );
+    }
+
+    if (searchQuery.trim() && !hasImageSearched) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (product) =>
+          product.product_name?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query) ||
+          product.brand?.toLowerCase().includes(query)
+      );
+    }
+
+    if (selectedCategory) {
+      const categoryName = categories.find((cat) => cat.id === parseInt(selectedCategory))?.name;
+      if (categoryName) {
+        filtered = filtered.filter((product) =>
+          product.category?.toLowerCase().includes(categoryName.toLowerCase())
+        );
+      }
+    }
+
+    if (priceRange.min || priceRange.max) {
+      filtered = filtered.filter((product) => {
+        const price = parseFloat(product.price || 0);
+        const min = priceRange.min ? parseFloat(priceRange.min) : 0;
+        const max = priceRange.max ? parseFloat(priceRange.max) : Infinity;
+        return price >= min && price <= max;
+      });
+    }
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price':
+          return parseFloat(a.price || 0) - parseFloat(b.price || 0);
+        case 'price_desc':
+          return parseFloat(b.price || 0) - parseFloat(a.price || 0);
+        case 'newest':
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        case 'product_name':
+        default:
+          return (a.product_name || '').localeCompare(b.product_name || '');
+      }
+    });
+
+    return filtered;
+  }, [featuredProducts, searchQuery, selectedCategory, categories, priceRange, sortBy, imageSearchResults, hasImageSearched]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+    setPriceRange({ min: '', max: '' });
+    setSortBy('product_name');
+    setImageSearchResults([]);
+    setHasImageSearched(false);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || selectedCategory || priceRange.min || priceRange.max || sortBy !== 'product_name' || hasImageSearched;
+
+  // Event handlers
   const handleStoreClick = (store) => {
     if (isLoggedIn) {
       navigate(`/stores/${store.id}`);
@@ -230,403 +254,189 @@ const LandingPage = () => {
   const redirectToRegister = () => {
     navigate('/register');
   };
-  
-  // Handle add to cart functionality
+
   const handleAddToCart = (product) => {
-    if (isLoggedIn) {
-      // Add to cart functionality
-      console.log('Adding to cart:', product);
-      
-      // You would implement actual cart functionality here
-      // For example:
-      // addToCart(product);
-      // showCartNotification();
-      
-      // Optionally navigate to cart page
-      // navigate('/cart');
-    } else {
-      // Show login modal
+    if (!isLoggedIn) {
       setSelectedItem(product);
       setModalType('product');
       setShowModal(true);
+      return;
     }
+
+    setSelectedProduct(product);
+    setCartModalOpen(true);
   };
-  
-  // Handle view details functionality
+
+
+
+
+
   const handleViewDetails = (product) => {
     if (isLoggedIn) {
-      // Navigate to product details page
       navigate(`/products/${product.product_id}`);
     } else {
-      // Show login modal
       setSelectedItem(product);
       setModalType('product');
       setShowModal(true);
     }
   };
 
-  // Handle store delete success - updates the stores list after deletion
   const handleStoreDeleteSuccess = (storeId) => {
-    setTopStores(prevStores => prevStores.filter(store => store.id !== storeId));
-  };
-
-  // Connection Modal Component
-  const ConnectionModal = () => {
-    if (!showModal) return null;
-    
-    return (
-      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-6 shadow-lg max-w-md w-full mx-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-900">
-              {modalType === 'product' ? 'View Product Details' : 'View Store Details'}
-            </h3>
-            <button 
-              onClick={closeModal}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <FiX className="text-xl" />
-            </button>
-          </div>
-          
-          {selectedItem && (
-            <div className="mb-6">
-              {modalType === 'product' ? (
-                <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gray-100 rounded overflow-hidden">
-                    <img 
-                      src={selectedItem.images && selectedItem.images.length > 0 
-                        ? selectedItem.images[0].image_path 
-                        : '/api/placeholder/300/200'} 
-                      alt={selectedItem.product_name}
-                      className="h-full w-full object-cover" 
-                    />
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{selectedItem.product_name}</h4>
-                    <p className="text-[#00796B] font-bold">${parseFloat(selectedItem.price).toFixed(2)}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gray-100 rounded-full overflow-hidden">
-                    <img 
-                      src={selectedItem.logo_path 
-                        ? `http://localhost:8000/storage/${selectedItem.logo_path}` 
-                        : '/api/placeholder/80/80'} 
-                      alt={selectedItem.name}
-                      className="h-full w-full object-cover" 
-                    />
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{selectedItem.name}</h4>
-                    {selectedItem.rating && (
-                      <div className="flex items-center">
-                        <FiStar className="text-yellow-400 mr-1" />
-                        <span className="text-sm">{selectedItem.rating} ({selectedItem.reviews} reviews)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-2">
-              <FiLogIn className="text-4xl text-[#00796B]" />
-            </div>
-            <p className="text-gray-700 mb-2">
-              Please connect to your account to {modalType === 'product' ? 'view product details and make purchases' : 'view store details and their products'}
-            </p>
-          </div>
-          
-          <div className="flex flex-col space-y-3">
-            <button
-              onClick={redirectToLogin}
-              className="w-full py-3 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-            >
-              Login
-            </button>
-            <button
-              onClick={redirectToRegister}
-              className="w-full py-3 border border-[#00796B] text-[#00796B] rounded-lg hover:bg-[#E0F2F1] transition-colors"
-            >
-              Create Account
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    setTopStores((prevStores) => prevStores.filter((store) => store.id !== storeId));
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
-    <div className="bg-gray-50">
-      {/* Add Navbar Component */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
+      <HeroSection />
       
-      {/* Hero Section (Search Removed) */}
-      <div className="bg-[#00796B] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-          <div className="max-w-3xl mx-auto text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              Your One-Stop Medical Supplies Marketplace
-            </h1>
-            <p className="text-lg md:text-xl text-[#B2DFDB]">
-              Connect with trusted suppliers for all your healthcare needs
-            </p>
-          </div>
-          
-          {/* Trust Indicators */}
-          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="p-4">
-              <div className="flex justify-center mb-2">
-                <FiShield className="text-2xl" />
+      {/* Search Component */}
+      <SearchComponent
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        categories={categories}
+        filteredResultsCount={filteredAndSortedProducts.length}
+        totalResultsCount={featuredProducts.length}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
+        showResultsSummary={true}
+        onImageSearchResults={handleImageSearchResults}
+        placeholder="Search for products by text or upload an image..."
+        title="Find What You Need"
+        subtitle="Search through thousands of medical products and supplies using text or image search"
+      />
+
+      {/* Search Results or Default Content */}
+      {searchQuery || hasActiveFilters || hasImageSearched ? (
+        <div className="py-12 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {hasImageSearched && !searchQuery ? 'Image Search Results' : 'Search Results'}
+              </h2>
+              <div className="text-sm text-gray-600">
+                {hasImageSearched && imageSearchResults.length > 0 && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 mr-2">
+                    📷 Image Search Active
+                  </span>
+                )}
+                {filteredAndSortedProducts.length} of {featuredProducts.length} products
               </div>
-              <h3 className="font-medium">Verified Suppliers</h3>
-              <p className="text-[#B2DFDB] text-sm">Quality assurance</p>
             </div>
-            <div className="p-4">
-              <div className="flex justify-center mb-2">
-                <FiShoppingCart className="text-2xl" />
-              </div>
-              <h3 className="font-medium">1000+ Products</h3>
-              <p className="text-[#B2DFDB] text-sm">All medical needs</p>
-            </div>
-            <div className="p-4">
-              <div className="flex justify-center mb-2">
-                <FiClock className="text-2xl" />
-              </div>
-              <h3 className="font-medium">Fast Delivery</h3>
-              <p className="text-[#B2DFDB] text-sm">Get supplies quickly</p>
-            </div>
-            <div className="p-4">
-              <div className="flex justify-center mb-2">
-                <FiAward className="text-2xl" />
-              </div>
-              <h3 className="font-medium">Certified Products</h3>
-              <p className="text-[#B2DFDB] text-sm">Medical grade quality</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Featured Categories */}
-      <div className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Featured Categories
-            </h2>
-            <button
-              onClick={() => navigate('/categories')}
-              className="flex items-center text-[#00796B] hover:underline"
-            >
-              View All <FiChevronRight className="ml-1" />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {categories.map((category) => (
-              <div
-                key={category.id}
-                onClick={() => handleCategoryClick(category.id)}
-                className="bg-gray-50 rounded-xl p-4 text-center cursor-pointer hover:shadow-md transition-shadow"
-              >
-                <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center rounded-full bg-white shadow-sm">
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="h-16 w-16 object-contain"
+
+            {filteredAndSortedProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredAndSortedProducts.map((product) => (
+                  <ProductCard
+                    key={product.product_id}
+                    product={product}
+                    isOwner={false}
+                    storageUrl="http://localhost:8000/storage"
+                    onAddToCart={() => handleAddToCart(product)}
+                    onViewDetails={() => handleViewDetails(product)}
+                    className="h-full bg-white rounded-xl shadow-xl border border-gray-200/50"
+                    imageHeight="h-48"
+                    isInCart={cartItems.some((item) => item.product_id === product.product_id)}
                   />
-                </div>
-                <h3 className="font-medium text-gray-900">{category.name}</h3>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Special Offers */}
-      <div className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Special Offers
-            </h2>
-            <button
-              onClick={() => navigate('/offers')}
-              className="flex items-center text-[#00796B] hover:underline"
-            >
-              View All <FiChevronRight className="ml-1" />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div className="h-40 bg-[#E0F2F1] flex items-center justify-center p-4">
-                <div className="text-center">
-                  <div className="flex justify-center mb-2">
-                    <FiPercent className="text-4xl text-[#00796B]" />
+            ) : (
+              <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100">
+                <div className="max-w-md mx-auto">
+                  <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+                    {hasImageSearched ? (
+                      <span className="text-3xl">📷</span>
+                    ) : (
+                      <FiSearch className="text-3xl text-gray-500" />
+                    )}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">Bulk Discounts</h3>
-                  <p className="text-[#00796B]">Save up to 25% on bulk orders</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    {hasImageSearched ? 'No matching products found' : 'No products found'}
+                  </h3>
+                  <p className="text-gray-500 mb-6 leading-relaxed">
+                    {hasImageSearched
+                      ? "We couldn't find any products matching your uploaded image. Try uploading a different image or use text search instead."
+                      : "We couldn't find any products matching your search criteria. Try adjusting your filters or search terms."
+                    }
+                  </p>
+                  <button
+                    onClick={clearFilters}
+                    className="px-8 py-3 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white font-medium rounded-xl hover:from-[#00695C] hover:to-[#00796B] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    {hasImageSearched ? 'Clear Image Search' : 'Clear All Filters'}
+                  </button>
                 </div>
               </div>
-            </div>
-            
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div className="h-40 bg-[#E0F2F1] flex items-center justify-center p-4">
-                <div className="text-center">
-                  <div className="flex justify-center mb-2">
-                    <FiClock className="text-4xl text-[#00796B]" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">Flash Sales</h3>
-                  <p className="text-[#00796B]">Limited time offers every day</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div className="h-40 bg-[#E0F2F1] flex items-center justify-center p-4">
-                <div className="text-center">
-                  <div className="flex justify-center mb-2">
-                    <FiTrendingUp className="text-4xl text-[#00796B]" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">New Arrivals</h3>
-                  <p className="text-[#00796B]">Latest products just in</p>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      </div>
-      
-      {/* Popular Products - Now using ProductCard component */}
-      <div className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Popular Products
-            </h2>
-            <button
-              onClick={() => navigate('/products')}
-              className="flex items-center text-[#00796B] hover:underline"
-            >
-              View All <FiChevronRight className="ml-1" />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredProducts.map((product) => (
-              <ProductCard
-                key={product.product_id}
-                product={product}
-                isOwner={false}
-                storageUrl="http://localhost:8000/storage"
-                onAddToCart={handleAddToCart}
-                onViewDetails={handleViewDetails}
-                className="h-full"
-                imageHeight="h-48"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Trusted Stores - Now using StoreCard component with proper ownership */}
-      <div className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Trusted Stores
-            </h2>
-            <button
-              onClick={() => navigate('/stores')}
-              className="flex items-center text-[#00796B] hover:underline"
-            >
-              View All <FiChevronRight className="ml-1" />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {topStores.map((store) => (
-              <StoreCard
-                key={store.id}
-                store={store}
-                currentUserId={currentUserId}
-                onDeleteSuccess={handleStoreDeleteSuccess}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Getting Started */}
-      <div className="py-12 bg-[#E0F2F1]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              How to Get Started
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Join our medical marketplace in just a few simple steps
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-16 h-16 bg-[#B2DFDB] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-[#00796B]">1</span>
+      ) : (
+        <>
+          <FeaturedCategoriesSection
+            categories={categories}
+            onViewAllClick={() => navigate('/categories')}
+            onCategoryClick={handleCategoryClick}
+          />
+          <SpecialOffersSection onViewAllClick={() => navigate('/offers')} />
+          <div className="py-12 bg-white/60 backdrop-blur-sm border border-gray-200/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <SectionHeader title="Popular Products" onViewAllClick={() => navigate('/products')} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featuredProducts.map((product) => (
+                  <ProductCard
+                    key={product.product_id}
+                    product={product}
+                    isOwner={false}
+                    storageUrl="http://localhost:8000/storage"
+                    onAddToCart={() => handleAddToCart(product)}
+                    onViewDetails={() => handleViewDetails(product)}
+                    className="h-full bg-white rounded-xl shadow-xl border border-gray-200/50"
+                    imageHeight="h-48"
+                    isInCart={cartItems.some((item) => item.product_id === product.product_id)}
+                  />
+                ))}
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Create an Account</h3>
-              <p className="text-gray-600">
-                Sign up for free and complete your profile to get started
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-16 h-16 bg-[#B2DFDB] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-[#00796B]">2</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Find Products</h3>
-              <p className="text-gray-600">
-                Browse categories or search for specific medical supplies
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-16 h-16 bg-[#B2DFDB] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-[#00796B]">3</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Order & Receive</h3>
-              <p className="text-gray-600">
-                Place orders and get your medical supplies delivered
-              </p>
             </div>
           </div>
-          
-          <div className="mt-12 text-center">
-            <button
-              onClick={() => navigate('/register')}
-              className="px-6 py-3 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-md text-lg font-medium"
-            >
-              Create Account
-            </button>
+          <div className="py-12 bg-gray-50/60 backdrop-blur-sm border border-gray-200/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <SectionHeader title="Trusted Stores" onViewAllClick={() => navigate('/stores')} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {topStores.map((store) => (
+                  <StoreCard
+                    key={store.id}
+                    store={store}
+                    currentUserId={currentUserId}
+                    onDeleteSuccess={handleStoreDeleteSuccess}
+                    className="bg-white rounded-xl shadow-xl border border-gray-200/50"
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+          <GettingStartedSection onCreateAccountClick={() => navigate('/register')} />
+        </>
+      )}
+
+      <ConnectionModal
+        showModal={showModal}
+        modalType={modalType}
+        selectedItem={selectedItem}
+        onClose={closeModal}
+        onLogin={redirectToLogin}
+        onRegister={redirectToRegister}
+      />
       
-      {/* Connection Modal */}
-      <ConnectionModal />
     </div>
   );
 };

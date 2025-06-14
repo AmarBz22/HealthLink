@@ -31,7 +31,6 @@ const UsersManagementPage = () => {
             'Accept': 'application/json'
           }
         });
-        console.log(userResponse)
 
         if (userResponse.data.role !== 'Admin') {
           toast.error('Unauthorized access');
@@ -48,10 +47,8 @@ const UsersManagementPage = () => {
             'Accept': 'application/json'
           }
         });
-        console.log(userResponse)
         setUsers(usersResponse.data.users || []);
       } catch (error) {
-        console.log(error)
         toast.error(error.response?.data?.message || 'Failed to load users');
       } finally {
         setLoading(false);
@@ -148,25 +145,28 @@ const UsersManagementPage = () => {
     <>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${showConfirmationModal ? 'blur-sm' : ''}`}>
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
-  <h2 className="text-xl font-bold text-gray-900">Users Management</h2>
-  <div className="flex items-center space-x-4">
-    <button
-      onClick={() => navigate('registration-requests')}
-      className="text-sm bg-[#00796B] text-white px-4 py-2 rounded-md hover:bg-[#00695C] transition-colors"
-    >
-      View Registration Requests
-    </button>
-    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#B2DFDB] text-[#00796B]">
-      Admin View
-    </span>
-  </div>
-</div>
+          <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-900">Users Management</h2>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('registration-requests')}
+                className="text-sm bg-[#00796B] text-white px-4 py-2 rounded-md hover:bg-[#00695C] transition-colors"
+              >
+                View Registration Requests
+              </button>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#B2DFDB] text-[#00796B]">
+                Admin View
+              </span>
+            </div>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID
+                  </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
                   </th>
@@ -188,6 +188,9 @@ const UsersManagementPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{user.id}</div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
@@ -292,7 +295,7 @@ const UsersManagementPage = () => {
             </div>
             
             <p className="mb-6 text-gray-600">
-              Are you sure you want to {currentAction} {selectedUser?.first_name} {selectedUser?.last_name}?
+              Are you sure you want to {currentAction} {selectedUser?.first_name} {selectedUser?.last_name} (ID: {selectedUser?.id})?
               {currentAction === 'ban' && (
                 <span className="block mt-2 text-red-500">
                   This will prevent the user from accessing their account.

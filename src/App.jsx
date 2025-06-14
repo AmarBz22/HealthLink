@@ -17,7 +17,6 @@ import UsersManagementPage from "./pages/UserManagementPage";
 import EditStorePage from "./pages/EditStore";
 import RegistrationConfirmation from "./pages/RegistrationConfiramtion";
 import RegistrationRequestsPage from "./pages/RegistrationRequests";
-import ProductPromotionPage from "./pages/ProductPromotion";
 import OrderInformationPage from "./pages/OrderInformation";
 import InventoryProductsPage from "./pages/InventoryProducts";
 import NotFoundPage from "./pages/NotFound";
@@ -31,9 +30,12 @@ import HomePage from "./pages/HomePage";
 import AddUsedEquipmentPage from "./pages/addUsedEquipement";
 import AdminOrders from "./pages/AdminOrders";
 import AdminStoreList from "./pages/AdminStoreList";
-import AdminInventoryProducts from "./pages/AdminInventoryProducts";
 import AdminProductList from "./pages/AdminProductList";
 import DigitalProductsPage from "./pages/DigitalProduct";
+import EditUsedEquipmentPage from "./pages/EditUsedEquipement";
+import AdminAddStore from "./pages/AddStoreAdmin";
+import AddDigitalProduct from "./pages/AddDigitalProduct";
+import EditDigitalProduct from "./pages/EditDigitalProduct";
 
 // Custom hook to check authentication status
 function useAuth() {
@@ -119,6 +121,8 @@ function App() {
           
           <Route path="products/:productId" element={<ProductDetailsPage />} />
           <Route path="used-equipment" element={<UsedMedicalEquipmentPage />} />
+          <Route path="used-equipment/edit/:id" element={<EditUsedEquipmentPage />} />
+
 
           
           <Route path="store">
@@ -136,7 +140,8 @@ function App() {
           
           <Route path="inventory-products" element={<InventoryProductsPage />} />
           
-          
+          <Route path=":storeId/products/:productId/edit" element={<EditProductPage />} />
+
           
           <Route path="checkout" element={<CheckoutPage />} />
           
@@ -144,9 +149,14 @@ function App() {
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="Admin-orders" element={<AdminOrders />} />
           <Route path="Admin-stores"  element={<AdminStoreList />}/>
-          <Route path="Admin-inventory"  element={<AdminInventoryProducts />}/>
+          <Route path="Admin-addStore"  element={<AdminAddStore />}/>
+
           <Route path="Admin-products"  element={<AdminProductList />}/>
           <Route path="Digital-Products"  element={<DigitalProductsPage />}/>
+          <Route path="add-Digital-Products"  element={<AddDigitalProduct />}/>
+          <Route path="Digital-Products/edit/:id"  element={<EditDigitalProduct />}/>
+
+
 
 
 

@@ -77,7 +77,20 @@ const StoreCard = ({
           });
         }
         
-        const ownerDisplayName = response.data.name || response.data.username || response.data.first_name || response.data.email || "Store Owner";
+        // Display full name like in StoreDetailsPage
+        const ownerData = response.data;
+        let ownerDisplayName = "Store Owner";
+        
+        if (ownerData.first_name && ownerData.last_name) {
+          ownerDisplayName = `${ownerData.first_name} ${ownerData.last_name}`;
+        } else if (ownerData.name) {
+          ownerDisplayName = ownerData.name;
+        } else if (ownerData.username) {
+          ownerDisplayName = ownerData.username;
+        } else if (ownerData.email) {
+          ownerDisplayName = ownerData.email;
+        }
+        
         setOwnerName(ownerDisplayName);
       } catch (error) {
         // Handle different types of errors gracefully

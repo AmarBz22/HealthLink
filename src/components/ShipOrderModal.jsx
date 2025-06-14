@@ -20,7 +20,7 @@ const ShipOrderModal = ({ orderId, orderNumber, onClose, onConfirm }) => {
         
         <div className="mb-6">
           <p className="text-gray-600 mb-4">
-            Are you sure you want to mark order <span className="font-semibold">#{orderNumber}</span> as shipped?
+            Are you sure you want to mark order as shipped?
           </p>
           <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
             <p className="text-blue-800 text-sm">

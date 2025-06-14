@@ -129,9 +129,7 @@ const UsedMedicalEquipmentPage = () => {
     }
   };
 
-  const handleEditProduct = (product) => {
-    navigate(`/used-equipment/${product.product_id}/edit`);
-  };
+
 
   // Handler for adding to cart - opens the modal
   const handleAddToCart = (product) => {
@@ -394,7 +392,6 @@ const UsedMedicalEquipmentPage = () => {
                   storageUrl={storageUrl}
                   deletingProductId={deletingProductId}
                   onDeleteProduct={handleDeleteProduct}
-                  onEditProduct={handleEditProduct}
                   onAddToCart={handleAddToCart}
                   onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
                   showInventoryPrice={false} // Different from inventory - might show different pricing

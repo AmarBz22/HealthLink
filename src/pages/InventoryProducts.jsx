@@ -19,6 +19,10 @@ const InventoryProductsPage = () => {
   const [deletingProductId, setDeletingProductId] = useState(null);
   const storageUrl = 'http://localhost:8000/storage';
   
+  // Authorization states
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  
   // Image search states
   const [showImageSearch, setShowImageSearch] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -34,8 +38,12 @@ const InventoryProductsPage = () => {
   // Categories for filter dropdown
   const categories = ['Medications', 'Electronics', 'Clothing', 'Food', 'Beauty', 'Other'];
 
+  // Define authorized roles - add or remove roles as needed
+  const authorizedRoles = ['Admin', 'Pharmacist', 'Supplier', 'Customer'];
+  const unauthorizedRoles = ['Doctor', 'Dentist'];
+
   useEffect(() => {
-    const fetchInventoryProducts = async () => {
+    const verifyAuthorizationAndFetchProducts = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
@@ -51,7 +59,21 @@ const InventoryProductsPage = () => {
           'Accept': 'application/json'
         };
 
-        // Direct API call to fetch all products
+        // First verify user role and authorization
+        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
+        const currentUserRole = userResponse.data.role;
+        setUserRole(currentUserRole);
+
+        // Check if user role is authorized to access inventory
+        if (unauthorizedRoles.includes(currentUserRole)) {
+          setIsAuthorized(false);
+          setLoading(false);
+          return;
+        }
+
+        setIsAuthorized(true);
+
+        // If authorized, fetch inventory products
         const productsResponse = await axios.get('http://localhost:8000/api/products', { headers });
         
         // Filter products to only show those with type="inventory"
@@ -84,14 +106,15 @@ const InventoryProductsPage = () => {
         if (error.response?.status === 401) {
           localStorage.removeItem('authToken');
           navigate('/login');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to load inventory products');
         }
-        toast.error(error.response?.data?.message || 'Failed to load inventory products');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchInventoryProducts();
+    verifyAuthorizationAndFetchProducts();
   }, [navigate]);
 
   const handleDeleteProduct = async (product) => {
@@ -187,6 +210,49 @@ const InventoryProductsPage = () => {
       !(productOwnership[product.product_id] || false)
     );
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      </div>
+    );
+  }
+
+  // Show unauthorized access page
+  if (!isAuthorized) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md w-full mx-4">
+          <div className="mx-auto h-16 w-16 text-red-500 mb-4">
+            <FiPackage className="w-full h-full" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Access Restricted</h2>
+          <p className="text-gray-600 mb-2">
+            Inventory access is not available for {userRole} accounts.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            This section is restricted to authorized personnel only.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
+            >
+              Return to Dashboard
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Determine which products to display
   const baseProducts = searchResults.length > 0 ? searchResults : inventoryProducts;
@@ -370,62 +436,54 @@ const InventoryProductsPage = () => {
         limitToProducts={inventoryProducts}
       />
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      {/* Products Grid */}
+      {!isShowingNoResults && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.product_id}
+              product={product}
+              isOwner={productOwnership[product.product_id] || false}
+              storageUrl={storageUrl}
+              deletingProductId={deletingProductId}
+              onDeleteProduct={handleDeleteProduct}
+              onEditProduct={handleEditProduct}
+              onAddToCart={handleAddToCart}
+              onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
+              showInventoryPrice={true}
+            />
+          ))}
         </div>
-      ) : (
-        <>
-          {/* Products Grid */}
-          {!isShowingNoResults && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.product_id}
-                  product={product}
-                  isOwner={productOwnership[product.product_id] || false}
-                  storageUrl={storageUrl}
-                  deletingProductId={deletingProductId}
-                  onDeleteProduct={handleDeleteProduct}
-                  onEditProduct={handleEditProduct}
-                  onAddToCart={handleAddToCart}
-                  onViewDetails={(product) => navigate(`/products/${product.product_id}`)}
-                  showInventoryPrice={true}
-                />
-              ))}
-            </div>
-          )}
+      )}
 
-          {/* Empty State */}
-          {filteredProducts.length === 0 && !isShowingNoResults && (
-            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-              <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
-                <FiPackage className="w-full h-full" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900">
-                {ownershipFilter === 'my' 
-                  ? 'No products found in your inventory'
-                  : ownershipFilter === 'others'
-                  ? 'No other products found'
-                  : 'No inventory products found'
-                }
-              </h3>
-              <p className="mt-1 text-gray-500">
-                {searchTerm || filterCategory || ownershipFilter
-                  ? "Try adjusting your search or filter criteria"
-                  : "Your inventory is currently empty"}
-              </p>
-              {ownershipFilter !== 'others' && (
-                <button
-                  onClick={() => navigate('/inventory/add')}
-                  className="mt-4 inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
-                >
-                  <FiShoppingCart className="mr-2" /> Add New Products
-                </button>
-              )}
-            </div>
+      {/* Empty State */}
+      {filteredProducts.length === 0 && !isShowingNoResults && (
+        <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+          <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
+            <FiPackage className="w-full h-full" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900">
+            {ownershipFilter === 'my' 
+              ? 'No products found in your inventory'
+              : ownershipFilter === 'others'
+              ? 'No other products found'
+              : 'No inventory products found'
+            }
+          </h3>
+          <p className="mt-1 text-gray-500">
+            {searchTerm || filterCategory || ownershipFilter
+              ? "Try adjusting your search or filter criteria"
+              : "Your inventory is currently empty"}
+          </p>
+          {ownershipFilter !== 'others' && (
+            <button
+              onClick={() => navigate('/inventory/add')}
+              className="mt-4 inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
+            >
+              <FiShoppingCart className="mr-2" /> Add New Products
+            </button>
           )}
-        </>
+        </div>
       )}
       
       {/* Add To Cart Modal */}

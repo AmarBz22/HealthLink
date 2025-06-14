@@ -6,8 +6,6 @@ import { useBasket } from '../context/BasketContext';
 import { 
   FiShoppingCart, 
   FiArrowLeft, 
-  FiMinus, 
-  FiPlus, 
   FiChevronLeft, 
   FiChevronRight,
   FiTag,
@@ -24,7 +22,6 @@ const ProductDetailsPage = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -127,21 +124,6 @@ const ProductDetailsPage = () => {
     return role === 'admin' || role === 'supplier';
   };
 
-  // Handle quantity changes
-  const decreaseQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(quantity - 1);
-    }
-  };
-
-  const increaseQuantity = () => {
-    if (quantity < (product?.stock || 10)) {
-      setQuantity(quantity + 1);
-    } else {
-      toast.warning(`Only ${product?.stock} items available`);
-    }
-  };
-
   // Add to cart functionality
   const handleAddToCart = async () => {
     try {
@@ -154,12 +136,12 @@ const ProductDetailsPage = () => {
         return;
       }
       
-      // Add to basket context
+      // Add to basket context with quantity of 1
       addToBasket({
         product_id: product.product_id,
         product_name: product.product_name,
         price: parseFloat(product.price),
-        quantity: quantity
+        quantity: 1
       });
       
       toast.success('Product added to cart successfully');
@@ -188,12 +170,12 @@ const ProductDetailsPage = () => {
       // Clear existing basket items first
       clearBasket();
       
-      // Add only this product to basket
+      // Add only this product to basket with quantity of 1
       addToBasket({
         product_id: product.product_id,
         product_name: product.product_name,
         price: parseFloat(product.price),
-        quantity: quantity
+        quantity: 1
       });
       
       // Navigate to checkout page
@@ -402,30 +384,6 @@ const ProductDetailsPage = () => {
                 </div>
               </div>
             </div>
-            
-            {/* Quantity Selector - Only show if not admin/supplier */}
-            {!isAdminOrSupplier() && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Quantity</h3>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={decreaseQuantity}
-                    disabled={quantity <= 1}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FiMinus size={14} />
-                  </button>
-                  <span className="text-lg font-medium w-12 text-center">{quantity}</span>
-                  <button
-                    onClick={increaseQuantity}
-                    disabled={quantity >= (product?.stock || 10)}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FiPlus size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
             
             {/* Action Buttons - Only show if not admin/supplier */}
             {!isAdminOrSupplier() && (

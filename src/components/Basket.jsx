@@ -58,7 +58,7 @@ const Basket = () => {
                     <div className="flex justify-between items-start">
                       <div className="flex-1 mr-4">
                         <h3 className="font-medium text-gray-900">{item.product_name}</h3>
-                        <p className="text-gray-600 text-sm">${item.price} each</p>
+                        <p className="text-gray-600 text-sm">DZD {item.price} each</p>
                       </div>
                       
                       <div className="flex items-center space-x-3">
@@ -101,7 +101,7 @@ const Basket = () => {
             <div className="border-t border-gray-100 p-4 bg-white">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="font-bold text-lg text-gray-900">${subtotal.toFixed(2)}</span>
+                <span className="font-bold text-lg text-gray-900">DZD {subtotal.toFixed(2)}</span>
               </div>
               
               <div className="flex space-x-3">

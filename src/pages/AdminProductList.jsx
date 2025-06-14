@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiPackage, FiSearch, FiUser, FiCalendar, FiDollarSign, FiTag,
-  FiShoppingBag, FiBarChart, FiTrendingUp, FiEye, FiLayers,
-  FiTrash2, FiAlertTriangle, FiRefreshCw
+  FiShoppingBag, FiBarChart, FiEye, FiLayers, FiTrash2, FiAlertTriangle, FiRefreshCw, FiTrendingUp
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -16,15 +15,16 @@ const AdminProductList = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [ownerNames, setOwnerNames] = useState({});
   const [storeNames, setStoreNames] = useState({});
+  const [storeOwners, setStoreOwners] = useState({}); // Store owner information
   const [error, setError] = useState(null);
   
-  // Delete modal state - Fixed initialization
+  // Delete modal state
   const [deleteModal, setDeleteModal] = useState({
     show: false,
     productId: null,
@@ -54,7 +54,7 @@ const AdminProductList = () => {
 
   const formatPrice = (price) => {
     const numPrice = parseFloat(price);
-    return isNaN(numPrice) ? 'N/A' : `$${numPrice.toFixed(2)}`;
+    return isNaN(numPrice) ? 'N/A' : `${numPrice.toFixed(2)} DZD`;
   };
 
   const formatDate = (dateString) => {
@@ -79,8 +79,8 @@ const AdminProductList = () => {
   const getTypeColor = (type) => {
     const colors = {
       inventory: 'bg-blue-100 text-blue-800',
-      marketplace: 'bg-green-100 text-green-800',
-      service: 'bg-purple-100 text-purple-800'
+      new: 'bg-green-100 text-green-800',
+      used_equipment: 'bg-yellow-100 text-yellow-800'
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
@@ -123,18 +123,49 @@ const AdminProductList = () => {
     }
   };
 
-  // Data fetching
+  // Data fetching functions
   const fetchOwnerName = async (userId, token) => {
     if (!userId || ownerNames[userId]) return;
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/user/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.get(`http://localhost:8000/api/users/${userId}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
       });
-      const ownerDisplayName = response.data?.name || response.data?.username || "Unknown User";
+      
+      const userData = response.data;
+      let ownerDisplayName = "Unknown User";
+      
+      if (userData.first_name && userData.last_name) {
+        ownerDisplayName = `${userData.first_name} ${userData.last_name}`;
+      } else if (userData.first_name) {
+        ownerDisplayName = userData.first_name;
+      } else if (userData.last_name) {
+        ownerDisplayName = userData.last_name;
+      } else if (userData.name) {
+        ownerDisplayName = userData.name;
+      } else if (userData.username) {
+        ownerDisplayName = userData.username;
+      } else if (userData.email) {
+        ownerDisplayName = userData.email;
+      }
+      
       setOwnerNames(prev => ({ ...prev, [userId]: ownerDisplayName }));
-    } catch {
-      setOwnerNames(prev => ({ ...prev, [userId]: "Unknown User" }));
+    } catch (error) {
+      console.error(`Error fetching owner name for user ${userId}:`, error);
+      let fallbackName = "Unknown User";
+      
+      if (error.response?.status === 401) {
+        fallbackName = "Unauthorized";
+      } else if (error.response?.status === 404) {
+        fallbackName = "User Not Found";
+      } else if (error.response?.status === 403) {
+        fallbackName = "Access Denied";
+      }
+      
+      setOwnerNames(prev => ({ ...prev, [userId]: fallbackName }));
     }
   };
 
@@ -142,99 +173,165 @@ const AdminProductList = () => {
     if (!storeId || storeNames[storeId]) return;
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/stores/${storeId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.get(`http://localhost:8000/api/store/${storeId}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
       });
-      const storeName = response.data?.store_name || response.data?.name || "Unknown Store";
+      
+      const storeData = Array.isArray(response.data) 
+        ? response.data[0] 
+        : response.data?.data || response.data;
+      
+      const storeName = storeData?.store_name || storeData?.name || "Unknown Store";
       setStoreNames(prev => ({ ...prev, [storeId]: storeName }));
-    } catch {
+      
+      // Also fetch store owner information if available
+      if (storeData?.owner_id && !storeOwners[storeId]) {
+        try {
+          const ownerResponse = await axios.get(`http://localhost:8000/api/users/${storeData.owner_id}`, {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
+          
+          const ownerData = ownerResponse.data;
+          let storeOwnerName = "Unknown Owner";
+          
+          if (ownerData.first_name && ownerData.last_name) {
+            storeOwnerName = `${ownerData.first_name} ${ownerData.last_name}`;
+          } else if (ownerData.first_name) {
+            storeOwnerName = ownerData.first_name;
+          } else if (ownerData.last_name) {
+            storeOwnerName = ownerData.last_name;
+          } else if (ownerData.name) {
+            storeOwnerName = ownerData.name;
+          } else if (ownerData.username) {
+            storeOwnerName = ownerData.username;
+          } else if (ownerData.email) {
+            storeOwnerName = ownerData.email;
+          }
+          
+          setStoreOwners(prev => ({ ...prev, [storeId]: storeOwnerName }));
+        } catch (ownerError) {
+          console.error(`Error fetching store owner for store ${storeId}:`, ownerError);
+          setStoreOwners(prev => ({ ...prev, [storeId]: "Unknown Owner" }));
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching store name for store ${storeId}:`, error);
       setStoreNames(prev => ({ ...prev, [storeId]: "Unknown Store" }));
     }
   };
 
-  const fetchProducts = async () => {
-    if (!currentUser || currentUser.role !== 'Admin') return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('authToken');
-      const response = await axios.get('http://localhost:8000/api/products', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      const allProducts = (response.data || []).map(product => ({
-        ...product,
-        id: product.product_id || product.id,
-        name: product.product_name || product.name || 'Unnamed Product',
-        price: product.inventory_price || product.marketplace_price || product.price || 0,
-        stock: product.inventory_quantity || product.marketplace_quantity || product.stock || 0,
-        category: product.category || 'Uncategorized',
-        type: product.type || 'unknown'
-      }));
-
-      setProducts(allProducts);
-
-      // Fetch additional data
-      const uniqueUserIds = [...new Set(allProducts.map(p => p.user_id).filter(Boolean))];
-      const uniqueStoreIds = [...new Set(allProducts.map(p => p.store_id).filter(Boolean))];
-      
-      uniqueUserIds.forEach(userId => fetchOwnerName(userId, token));
-      uniqueStoreIds.forEach(storeId => fetchStoreName(storeId, token));
-
-    } catch (error) {
-      const errorMessage = handleApiError(error, 'Load products');
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Effects
+  // Verify admin and fetch products
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const verifyAdminAndFetchProducts = async () => {
       try {
         const token = localStorage.getItem('authToken');
         if (!token) {
+          toast.error('Please login to access products');
           navigate('/login');
           return;
         }
 
-        const response = await axios.get('http://localhost:8000/api/user', {
+        // Verify if user is admin
+        const userResponse = await axios.get('http://localhost:8000/api/user', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (userResponse.data.role !== 'Admin') {
+          toast.error('Unauthorized access. Admin privileges required.');
+          return;
+        }
+
+        setIsAdmin(true);
+        setCurrentAdminId(userResponse.data.id);
+
+        // Fetch products if admin
+        const response = await axios.get('http://localhost:8000/api/products', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        setCurrentUser(response.data);
+        const allProducts = (response.data || []).map(product => ({
+          ...product,
+          id: product.product_id || product.id,
+          name: product.product_name || product.name || 'Unnamed Product',
+          price: product.inventory_price || product.price || 0,
+          stock: product.inventory_quantity || product.stock || 0,
+          category: product.category || 'Uncategorized',
+          type: product.type || 'unknown'
+        }));
 
-        if (response.data.role !== 'Admin') {
-          toast.error('Access denied. Admin privileges required.');
-          navigate('/products');
-        }
+        setProducts(allProducts);
+
+        // Fetch store information (including store owners)
+        const uniqueStoreIds = [...new Set(allProducts.map(p => p.store_id).filter(Boolean))];
+        await Promise.all(uniqueStoreIds.map(storeId => fetchStoreName(storeId, token)));
+        
+        // Fetch owner information for products that have user_id but no store_id
+        const uniqueUserIds = [...new Set(
+          allProducts
+            .filter(p => p.user_id && !p.store_id)
+            .map(p => p.user_id)
+            .filter(Boolean)
+        )];
+        await Promise.all(uniqueUserIds.map(userId => fetchOwnerName(userId, token)));
+
       } catch (error) {
-        handleApiError(error, 'Load user information');
-        setError('Failed to load user information');
+        const errorMessage = handleApiError(error, 'Load products');
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
-        setUserLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchCurrentUser();
+    verifyAdminAndFetchProducts();
   }, [navigate]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [currentUser]);
+  // Get the display name for product owner (either direct owner or store owner)
+  const getProductOwnerDisplay = (product) => {
+    if (product.store_id) {
+      const storeName = storeNames[product.store_id] || 'Loading...';
+      const storeOwner = storeOwners[product.store_id] || 'Loading...';
+      return {
+        primary: storeName,
+        secondary: `Owner: ${storeOwner}`,
+        isStore: true
+      };
+    } else if (product.user_id) {
+      const ownerName = ownerNames[product.user_id] || 'Loading...';
+      return {
+        primary: ownerName,
+        secondary: `User ID: ${product.user_id}`,
+        isStore: false
+      };
+    }
+    return {
+      primary: 'Unknown',
+      secondary: 'No owner info',
+      isStore: false
+    };
+  };
 
   // Filtered products
   const filteredProducts = products.filter(product => {
-    const ownerName = ownerNames[product.user_id] || '';
-    const storeName = storeNames[product.store_id] || '';
+    const ownerInfo = getProductOwnerDisplay(product);
     
     const matchesSearch = [
-      product.name, product.description, product.category, 
-      ownerName, storeName, product.user_id?.toString(), product.type
+      product.name, 
+      product.description, 
+      product.category, 
+      ownerInfo.primary,
+      ownerInfo.secondary,
+      product.user_id?.toString(), 
+      product.type
     ].some(field => field?.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
@@ -247,36 +344,32 @@ const AdminProductList = () => {
   const stats = {
     total: products.length,
     inventory: products.filter(p => p.type === 'inventory').length,
-    marketplace: products.filter(p => p.type === 'marketplace').length,
-    services: products.filter(p => p.type === 'service').length,
+    new: products.filter(p => p.type === 'new').length,
+    used_equipment: products.filter(p => p.type === 'used_equipment').length,
     totalValue: products.reduce((sum, p) => sum + (parseFloat(p.price) * parseInt(p.stock) || 0), 0)
   };
 
-  if (userLoading || loading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
+      <div className="flex justify-center items-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading products...</p>
         </div>
       </div>
     );
   }
 
-  if (!currentUser || currentUser.role !== 'Admin') {
+  if (!isAdmin) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-red-50 border border-red-200 p-8 rounded-xl text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiUser className="text-red-600 text-2xl" />
-          </div>
-          <h2 className="text-red-800 text-2xl font-bold mb-2">Access Denied</h2>
-          <p className="text-red-600 mb-6">Admin privileges required to view all products.</p>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
+          <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
             onClick={() => navigate('/products')}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Go to Products
+            Return to Products
           </button>
         </div>
       </div>
@@ -285,16 +378,16 @@ const AdminProductList = () => {
 
   if (error && products.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-red-50 border border-red-200 p-8 rounded-xl text-center">
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiAlertTriangle className="text-red-600 text-2xl" />
           </div>
-          <h2 className="text-red-800 text-2xl font-bold mb-2">Error Loading Products</h2>
-          <p className="text-red-600 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Error Loading Products</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={fetchProducts}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center mx-auto"
+            onClick={() => verifyAdminAndFetchProducts()}
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors flex items-center mx-auto"
           >
             <FiRefreshCw className="mr-2" />
             Try Again
@@ -325,7 +418,7 @@ const AdminProductList = () => {
             <option value="all">All Types</option>
             {productTypes.map(type => (
               <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
+                {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
               </option>
             ))}
           </select>
@@ -361,9 +454,9 @@ const AdminProductList = () => {
         {[
           { title: 'Total Products', value: stats.total, icon: FiPackage, color: 'border-blue-500' },
           { title: 'Inventory', value: stats.inventory, icon: FiBarChart, color: 'border-blue-400' },
-          { title: 'Marketplace', value: stats.marketplace, icon: FiShoppingBag, color: 'border-green-500' },
-          { title: 'Services', value: stats.services, icon: FiTrendingUp, color: 'border-purple-500' },
-          { title: 'Total Value', value: `$${(stats.totalValue/1000).toFixed(1)}K`, icon: FiDollarSign, color: 'border-orange-500' }
+          { title: 'New', value: stats.new, icon: FiShoppingBag, color: 'border-green-500' },
+          { title: 'Used Equipment', value: stats.used_equipment, icon: FiTrendingUp, color: 'border-yellow-500' },
+          { title: 'Total Value', value: `${(stats.totalValue/1000).toFixed(1)}K DZD`, icon: FiDollarSign, color: 'border-orange-500' }
         ].map((stat, index) => (
           <div key={index} className={`bg-white rounded-xl shadow p-6 border-l-4 ${stat.color}`}>
             <div className="flex items-center">
@@ -398,8 +491,7 @@ const AdminProductList = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product Details</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type & Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Store</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner/Store</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price & Stock</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -408,6 +500,7 @@ const AdminProductList = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.map((product) => {
                   const displayImage = getProductDisplayImage(product);
+                  const ownerInfo = getProductOwnerDisplay(product);
                   
                   return (
                     <tr key={product.id} className="hover:bg-gray-50">
@@ -437,7 +530,7 @@ const AdminProductList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(product.type)}`}>
-                          {product.type}
+                          {product.type.replace('_', ' ')}
                         </span>
                         <div className="text-xs text-gray-500 flex items-center mt-2">
                           <FiTag className="mr-1" />
@@ -447,29 +540,16 @@ const AdminProductList = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           <div className="flex items-center">
-                            <FiUser className="mr-2 text-gray-400" />
-                            {product.user_id}
+                            {ownerInfo.isStore ? (
+                              <FiShoppingBag className="mr-2 text-gray-400" />
+                            ) : (
+                              <FiUser className="mr-2 text-gray-400" />
+                            )}
+                            <span className="font-medium">{ownerInfo.primary}</span>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {ownerNames[product.user_id] || 'Loading...'}
+                            {ownerInfo.secondary}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {product.store_id ? (
-                            <>
-                              <div className="flex items-center">
-                                <FiShoppingBag className="mr-2 text-gray-400" />
-                                {product.store_id}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {storeNames[product.store_id] || 'Loading...'}
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-gray-400 text-xs">No store</span>
-                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -523,7 +603,6 @@ const AdminProductList = () => {
         </p>
       </div>
 
-      {/* Fixed Delete Modal */}
       {deleteModal.show && (
         <DeleteProductModal
           show={deleteModal.show}

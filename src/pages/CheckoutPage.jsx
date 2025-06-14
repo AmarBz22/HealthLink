@@ -91,9 +91,8 @@ const CheckoutPage = () => {
         'Content-Type': 'application/json'
       };
 
-      // Format order data according to API requirements
       const orderData = {
-        buyer_id: userData.id, // Changed from user_id to buyer_id to match API
+        buyer_id: userData.id,
         delivery_address: formData.delivery_address,
         estimated_delivery: formData.estimated_delivery || null,
         items: basket.map(item => ({
@@ -291,7 +290,7 @@ const CheckoutPage = () => {
                       <p className="text-gray-500 text-sm">Qty: {item.quantity}</p>
                     </div>
                     <span className="font-medium text-gray-800">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      DZD {(item.price * item.quantity).toFixed(2)}
                     </span>
                   </li>
                 ))}
@@ -301,15 +300,15 @@ const CheckoutPage = () => {
             <div className="border-t border-gray-200 pt-4">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
+                <span className="font-medium">DZD {subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">Shipping</span>
-                <span className="font-medium">$0.00</span>
+                <span className="font-medium">DZD 0.00</span>
               </div>
               <div className="flex justify-between font-bold text-lg mt-4">
                 <span>Total</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>DZD {subtotal.toFixed(2)}</span>
               </div>
             </div>
           </div>

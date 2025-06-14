@@ -1,11 +1,14 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCalendar, FiPackage, FiLoader, FiCheckCircle, FiUser, FiMail, FiPhone, FiMapPin, FiTrash2, FiTruck } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiPackage, FiLoader, FiCheckCircle, FiUser, FiMail, FiPhone, FiMapPin, FiTrash2, FiTruck, FiSend, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import ApproveOrderModal from '../components/ApproveOrderModal';
 import DeleteOrderModal from '../components/DeleteOrderModal';
+import ShipOrderModal from '../components/ShipOrderModal';
+import DeliverOrderModal from '../components/DeliverModal';
+import ProductRatingModal from '../components/ProductRatingModal';
+import CancelOrderModal from '../components/CancelOrderModal';
 
 // Enhanced OrderStatusStep component with dynamic styling
 const OrderStatusStep = ({ title, description, isActive, isCompleted, isError, isSuccess, isLast }) => {
@@ -50,7 +53,6 @@ const OrderStatusStep = ({ title, description, isActive, isCompleted, isError, i
         <p className={`text-sm mt-1 ${isActive ? 'text-gray-600' : 'text-gray-500'}`}>
           {description}
         </p>
-        {/* Show completion time for completed steps */}
         {isCompleted && !isError && (
           <p className="text-xs text-gray-400 mt-2">
             ✓ Step completed
@@ -102,12 +104,16 @@ const OrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [buyerInfo, setBuyerInfo] = useState(null);
-  const [sellerInfo, setSellerInfo] = useState(null);
+  const [sellerInfoCache, setSellerInfoCache] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   
   // Modal states
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showShipModal, setShowShipModal] = useState(false);
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -124,26 +130,22 @@ const OrderDetailPage = () => {
           'Accept': 'application/json'
         };
 
-        // Get current user data first
+        // Get current user data
         const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
         const userData = userResponse.data;
         setCurrentUser(userData);
 
         // Fetch order details with eager loaded relationships
         const response = await axios.get(`http://localhost:8000/api/product-orders/${id}`, { headers });
-        console.log('Order API Response:', response.data);
-        
         const orderData = response.data;
         setOrder(orderData);
         
-        // Check if buyer and seller are already included in the response
+        // Fetch buyer information
         if (orderData.buyer) {
           setBuyerInfo(orderData.buyer);
         } else if (orderData.buyer_id) {
-          // If relationships weren't eager loaded, fetch buyer details separately
           try {
             const buyerResponse = await axios.get(`http://localhost:8000/api/users/${orderData.buyer_id}`, { headers });
-            console.log('Buyer API Response:', buyerResponse.data);
             setBuyerInfo(buyerResponse.data);
           } catch (buyerError) {
             console.error('Error fetching buyer details:', buyerError);
@@ -151,19 +153,29 @@ const OrderDetailPage = () => {
           }
         }
 
-        if (orderData.seller) {
-          setSellerInfo(orderData.seller);
-        } else if (orderData.seller_id) {
-          // If relationships weren't eager loaded, fetch seller details separately
-          try {
-            const sellerResponse = await axios.get(`http://localhost:8000/api/users/${orderData.seller_id}`, { headers });
-            console.log('Seller API Response:', sellerResponse.data);
-            setSellerInfo(sellerResponse.data);
-          } catch (sellerError) {
-            console.error('Error fetching seller details:', sellerError);
-            toast.error('Could not load seller information');
+        // Fetch seller information for each item
+        if (orderData.items && Array.isArray(orderData.items)) {
+          const newSellerInfoCache = { ...sellerInfoCache };
+          for (const item of orderData.items) {
+            if (item.seller_id && !newSellerInfoCache[item.seller_id]) {
+              try {
+                const sellerResponse = await axios.get(`http://localhost:8000/api/users/${item.seller_id}`, { headers });
+                newSellerInfoCache[item.seller_id] = sellerResponse.data;
+              } catch (sellerError) {
+                console.error(`Error fetching seller details for seller ID ${item.seller_id}:`, sellerError);
+                newSellerInfoCache[item.seller_id] = {
+                  first_name: 'Unknown',
+                  last_name: '',
+                  email: 'N/A',
+                  phone_number: 'N/A',
+                  wilaya: 'N/A'
+                };
+              }
+            }
           }
+          setSellerInfoCache(newSellerInfoCache);
         }
+
       } catch (error) {
         console.error('Error fetching order details:', error);
         setError(error.response?.data?.message || 'Failed to load order details');
@@ -184,7 +196,6 @@ const OrderDetailPage = () => {
   const getOrderStatusSteps = (order, currentStatus) => {
     const steps = [];
     
-    // Always show "Order Placed" as the first step
     steps.push({
       key: 'placed',
       title: 'Order Placed',
@@ -194,22 +205,17 @@ const OrderDetailPage = () => {
       alwaysShow: true
     });
 
-    // Dynamically add steps based on order status and type
-    const status = currentStatus.toLowerCase();
-    
-    // Add Processing step (skip if cancelled immediately)
-    if (status !== 'cancelled') {
+    if (currentStatus.toLowerCase() !== 'cancelled') {
       steps.push({
         key: 'processing',
         title: 'Processing',
-        description: status === 'processing' ? 'Your order is currently being prepared' : 'Your order is being prepared',
-        isActive: ['processing', 'shipped', 'delivered', 'completed'].includes(status),
-        isCompleted: ['shipped', 'delivered', 'completed'].includes(status)
+        description: currentStatus.toLowerCase() === 'processing' ? 'Your order is currently being prepared' : 'Your order is being prepared',
+        isActive: ['processing', 'shipped', 'delivered', 'completed'].includes(currentStatus.toLowerCase()),
+        isCompleted: ['shipped', 'delivered', 'completed'].includes(currentStatus.toLowerCase())
       });
     }
 
-    // Add Shipped step (only for physical products)
-    if (order.order_type !== 'digital' && status !== 'cancelled') {
+    if (order.order_type !== 'digital' && currentStatus.toLowerCase() !== 'cancelled') {
       const shippedDesc = order.tracking_number 
         ? `Tracking: ${order.tracking_number}` 
         : 'Your order is on the way';
@@ -218,13 +224,12 @@ const OrderDetailPage = () => {
         key: 'shipped',
         title: 'Shipped',
         description: shippedDesc,
-        isActive: ['shipped', 'delivered', 'completed'].includes(status),
-        isCompleted: ['delivered', 'completed'].includes(status)
+        isActive: ['shipped', 'delivered', 'completed'].includes(currentStatus.toLowerCase()),
+        isCompleted: ['delivered', 'completed'].includes(currentStatus.toLowerCase())
       });
     }
 
-    // Add Delivered/Completed step
-    if (status !== 'cancelled') {
+    if (currentStatus.toLowerCase() !== 'cancelled') {
       const deliveryDesc = order.estimated_delivery 
         ? `Estimated delivery on ${formatDate(order.estimated_delivery)}` 
         : order.delivery_address
@@ -235,13 +240,12 @@ const OrderDetailPage = () => {
         key: 'delivered',
         title: order.order_type === 'pickup' ? 'Ready for Pickup' : 'Delivered',
         description: deliveryDesc,
-        isActive: ['delivered', 'completed'].includes(status),
-        isCompleted: ['completed'].includes(status)
+        isActive: ['delivered', 'completed'].includes(currentStatus.toLowerCase()),
+        isCompleted: ['completed'].includes(currentStatus.toLowerCase())
       });
     }
 
-    // Handle cancelled orders
-    if (status === 'cancelled') {
+    if (currentStatus.toLowerCase() === 'cancelled') {
       steps.push({
         key: 'cancelled',
         title: 'Order Cancelled',
@@ -255,17 +259,12 @@ const OrderDetailPage = () => {
     return steps;
   };
 
-  // Helper function to format full name from first and last name
+  // Helper function to format full name
   const formatFullName = (firstName, lastName) => {
-    if (firstName && lastName) {
-      return `${firstName} ${lastName}`;
-    } else if (firstName) {
-      return firstName;
-    } else if (lastName) {
-      return lastName;
-    } else {
-      return 'Unknown';
-    }
+    if (firstName && lastName) return `${firstName} ${lastName}`;
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+    return 'Unknown';
   };
 
   const formatDate = (dateString) => {
@@ -281,20 +280,16 @@ const OrderDetailPage = () => {
   const calculateTotal = () => {
     if (!order?.items || order.items.length === 0) return 0;
     return order.items.reduce((sum, item) => {
-      // Safely handle potentially undefined values
-      const price = item.price || 0;
+      const price = item.price || item.unit_price || 0;
       const quantity = item.quantity || 0;
       return sum + (price * quantity);
     }, 0);
   };
 
-  // Determine current order status (use the order_status field from ProductOrder model)
   const getOrderStatus = () => {
-    // Use the order_status from the model or default to 'pending'
     return order?.order_status || 'pending';
   };
 
-  // Map order status values to display text
   const getOrderStatusDisplay = (status) => {
     const statusMap = {
       'processing': 'Processing',
@@ -304,11 +299,9 @@ const OrderDetailPage = () => {
       'pending': 'Pending',
       'completed': 'Completed'
     };
-    return statusMap[status] || status;
+    return statusMap[status.toLowerCase()] || status;
   };
 
-
-  // Get order status color class
   const getOrderStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'delivered':
@@ -326,7 +319,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // Get correct items array
   const getOrderItems = () => {
     if (Array.isArray(order.items) && order.items.length > 0) {
       return order.items;
@@ -336,9 +328,7 @@ const OrderDetailPage = () => {
     return [];
   };
 
-  // Get product name safely
   const getProductName = (item) => {
-    // Check all possible paths for product name
     if (item.product_name) return item.product_name;
     if (item.name) return item.name;
     if (item.product) {
@@ -348,7 +338,6 @@ const OrderDetailPage = () => {
     return 'Unknown Product';
   };
 
-  // Get item price safely
   const getItemPrice = (item) => {
     if (item.price) return item.price;
     if (item.unit_price) return item.unit_price;
@@ -359,30 +348,62 @@ const OrderDetailPage = () => {
     return 0;
   };
 
-  // Determine if current user can manage this order
+  // Order management permissions
   const canManageOrder = () => {
     if (!currentUser || !order) return false;
-    return currentUser.id === order.seller_id;
+    return order.items?.some(item => item.seller_id === currentUser.id);
   };
 
-  // Determine if order can be approved
+  const canBuyerManageOrder = () => {
+    if (!currentUser || !order) return false;
+    return currentUser.id === order.buyer_id;
+  };
+
   const canApproveOrder = () => {
     if (!canManageOrder()) return false;
     const status = getOrderStatus().toLowerCase();
-    return status !== 'processing' && status !== 'shipped' && status !== 'delivered' && status !== 'completed';
+    return status === 'pending';
   };
 
-  // Handle approve order - now opens modal
-  const handleApproveOrder = () => {
-    setShowApproveModal(true);
+  const canShipOrder = () => {
+    if (!canManageOrder()) return false;
+    const status = getOrderStatus().toLowerCase();
+    return status === 'processing';
   };
 
-  // Handle delete order - now opens modal
-  const handleDeleteOrder = () => {
-    setShowDeleteModal(true);
+  const canDeliverOrder = () => {
+    if (!canBuyerManageOrder()) return false;
+    const status = getOrderStatus().toLowerCase();
+    return status === 'shipped';
   };
 
-  // Confirm approve order - called from modal
+  const canRateOrder = () => {
+    if (!canBuyerManageOrder()) return false;
+    const status = getOrderStatus().toLowerCase();
+    return status === 'delivered';
+  };
+
+  const canCancelOrder = () => {
+    if (!currentUser || !order) return false;
+    const status = getOrderStatus().toLowerCase();
+    if (canManageOrder()) {
+      return ['pending', 'processing', 'shipped'].includes(status);
+    }
+    if (canBuyerManageOrder()) {
+      return status === 'pending';
+    }
+    return false;
+  };
+
+  // Modal handlers
+  const handleApproveOrder = () => setShowApproveModal(true);
+  const handleDeleteOrder = () => setShowDeleteModal(true);
+  const handleCancelOrder = () => setShowCancelModal(true);
+  const handleShipOrder = () => setShowShipModal(true);
+  const handleDeliverOrder = () => setShowDeliverModal(true);
+  const handleRateOrder = () => setShowRatingModal(true);
+
+  // Confirmation functions
   const confirmApproveOrder = async () => {
     if (!order) return;
     
@@ -405,11 +426,7 @@ const OrderDetailPage = () => {
       );
       
       toast.success('Order approved successfully');
-      
-      // Update the order status locally
       setOrder(prevOrder => ({ ...prevOrder, order_status: 'processing' }));
-      
-      // Close the modal
       setShowApproveModal(false);
       
     } catch (error) {
@@ -418,7 +435,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // Confirm delete order - called from modal
   const confirmDeleteOrder = async () => {
     if (!order) return;
     
@@ -440,13 +456,134 @@ const OrderDetailPage = () => {
       );
       
       toast.success('Order deleted successfully');
-      
-      // Navigate back to orders page
       navigate('/orders');
       
     } catch (error) {
       console.error('Error deleting order:', error);
       toast.error('Failed to delete order');
+    }
+  };
+
+  const confirmCancelOrder = async () => {
+    if (!order) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${order.product_order_id}/cancel`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order cancelled successfully');
+      setOrder(prevOrder => ({ ...prevOrder, order_status: 'cancelled' }));
+      setShowCancelModal(false);
+      
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast.error('Failed to cancel order');
+    }
+  };
+
+  const confirmShipOrder = async () => {
+    if (!order) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${order.product_order_id}/ship`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order marked as shipped successfully');
+      setOrder(prevOrder => ({ ...prevOrder, order_status: 'shipped' }));
+      setShowShipModal(false);
+      
+    } catch (error) {
+      console.error('Error shipping order:', error);
+      toast.error('Failed to ship order');
+    }
+  };
+
+  const confirmDeliverOrder = async () => {
+    if (!order) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${order.product_order_id}/deliver`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order marked as delivered successfully');
+      setOrder(prevOrder => ({ ...prevOrder, order_status: 'delivered' }));
+      setShowDeliverModal(false);
+      setShowRatingModal(true);
+      
+    } catch (error) {
+      console.error('Error delivering order:', error);
+      toast.error('Failed to mark order as delivered');
+    }
+  };
+
+  const handleSubmitRatings = async (ratingsData) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      const ratingPromises = ratingsData.map(rating => 
+        axios.post('http://localhost:8000/api/ratings', rating, { headers })
+      );
+
+      await Promise.all(ratingPromises);
+      
+      toast.success('Ratings submitted successfully!');
+      setShowRatingModal(false);
+    } catch (error) {
+      console.error('Error submitting ratings:', error);
+      toast.error(error.response?.data?.message || 'Failed to submit ratings');
+      throw error;
     }
   };
 
@@ -480,7 +617,7 @@ const OrderDetailPage = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Approve Order Modal */}
+      {/* Management Modals */}
       {showApproveModal && (
         <ApproveOrderModal 
           orderId={order.product_order_id || order.id}
@@ -489,14 +626,44 @@ const OrderDetailPage = () => {
           onConfirm={confirmApproveOrder}
         />
       )}
-
-      {/* Delete Order Modal */}
       {showDeleteModal && (
         <DeleteOrderModal 
           orderId={order.product_order_id || order.id}
           orderNumber={order.product_order_id || order.id}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={confirmDeleteOrder}
+        />
+      )}
+      {showCancelModal && (
+        <CancelOrderModal 
+          orderId={order.product_order_id || order.id}
+          orderNumber={order.product_order_id || order.id}
+          onClose={() => setShowCancelModal(false)}
+          onConfirm={confirmCancelOrder}
+        />
+      )}
+      {showShipModal && (
+        <ShipOrderModal 
+          orderId={order.product_order_id || order.id}
+          orderNumber={order.product_order_id || order.id}
+          onClose={() => setShowShipModal(false)}
+          onConfirm={confirmShipOrder}
+        />
+      )}
+      {showDeliverModal && (
+        <DeliverOrderModal 
+          orderId={order.product_order_id || order.id}
+          orderNumber={order.product_order_id || order.id}
+          onClose={() => setShowDeliverModal(false)}
+          onConfirm={confirmDeliverOrder}
+        />
+      )}
+      {showRatingModal && (
+        <ProductRatingModal 
+          order={order}
+          isOpen={showRatingModal}
+          onClose={() => setShowRatingModal(false)}
+          onSubmitRatings={handleSubmitRatings}
         />
       )}
 
@@ -513,7 +680,7 @@ const OrderDetailPage = () => {
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden mb-8">
         <div className="p-6">
-          {/* Order Header with Date and Status */}
+          {/* Order Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
             <div className="flex items-center mb-3 sm:mb-0">
               <FiCalendar className="text-[#00796B] mr-2" />
@@ -523,36 +690,74 @@ const OrderDetailPage = () => {
               <div className={`inline-flex px-3 py-1 rounded-full font-medium text-sm ${getOrderStatusColor(orderStatus)}`}>
                 {getOrderStatusDisplay(orderStatus)}
               </div>
-              
             </div>
           </div>
 
-          {/* Action Buttons for Order Management */}
-          {canManageOrder() && (
+          {/* Order Management Actions */}
+          {(canManageOrder() || canBuyerManageOrder()) && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-700 mb-3">Order Management</h3>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-3">
                 {canApproveOrder() && (
                   <button
                     onClick={handleApproveOrder}
-                    className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors flex items-center"
+                    className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm hover:bg-green-100 transition-colors flex items-center"
                   >
-                    <FiTruck className="mr-2" size={16} />
+                    <FiCheckCircle className="mr-2" size={16} />
                     Approve Order
                   </button>
                 )}
-                <button
-                  onClick={handleDeleteOrder}
-                  className="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm hover:bg-red-100 transition-colors flex items-center"
-                >
-                  <FiTrash2 className="mr-2" size={16} />
-                  Delete Order
-                </button>
+                {canShipOrder() && (
+                  <button
+                    onClick={handleShipOrder}
+                    className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors flex items-center"
+                  >
+                    <FiTruck className="mr-2" size={16} />
+                    Ship Order
+                  </button>
+                )}
+                {canDeliverOrder() && (
+                  <button
+                    onClick={handleDeliverOrder}
+                    className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm hover:bg-purple-100 transition-colors flex items-center"
+                  >
+                    <FiPackage className="mr-2" size={16} />
+                    Mark as Delivered
+                  </button>
+                )}
+                {canRateOrder() && (
+                  <button
+                    onClick={handleRateOrder}
+                    className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg text-sm hover:bg-yellow-100 transition-colors flex items-center"
+                  >
+                    <FiCheckCircle className="mr-2" size={16} />
+                    Rate Products
+                  </button>
+                )}
+                {canCancelOrder() && (
+                  <button
+                    onClick={handleCancelOrder}
+                    className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg text-sm hover:bg-orange-100 transition-colors flex items-center"
+                  >
+                    <FiX className="mr-2" size={16} />
+                    Cancel Order
+                  </button>
+                )}
+                {/* Note: Delete button is displayed for sellers in any status. Consider restricting to specific statuses (e.g., ['pending', 'cancelled']) if desired. */}
+                {canManageOrder() && (
+                  <button
+                    onClick={handleDeleteOrder}
+                    className="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm hover:bg-red-100 transition-colors flex items-center"
+                  >
+                    <FiTrash2 className="mr-2" size={16} />
+                    Delete Order
+                  </button>
+                )}
               </div>
             </div>
           )}
 
-          {/* Buyer and Seller Information - Improved Design */}
+          {/* Buyer Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <InfoCard title="Buyer Information" icon={FiUser}>
               {buyerInfo ? (
@@ -569,15 +774,22 @@ const OrderDetailPage = () => {
               )}
             </InfoCard>
             
+            {/* Seller Information - Display first seller or note if multiple */}
             <InfoCard title="Seller Information" icon={FiUser}>
-              {sellerInfo ? (
+              {orderItems.length > 0 && sellerInfoCache[orderItems[0]?.seller_id] ? (
                 <div>
                   <div className="text-lg font-medium text-gray-800 mb-3">
-                    {formatFullName(sellerInfo.first_name, sellerInfo.last_name)}
+                    {formatFullName(
+                      sellerInfoCache[orderItems[0].seller_id].first_name,
+                      sellerInfoCache[orderItems[0].seller_id].last_name
+                    )}
+                    {orderItems.some(item => item.seller_id !== orderItems[0].seller_id) && (
+                      <span className="text-xs text-gray-500 ml-2">(Multiple sellers, showing first)</span>
+                    )}
                   </div>
-                  <ContactInfoItem icon={FiMail} value={sellerInfo.email} />
-                  <ContactInfoItem icon={FiPhone} value={sellerInfo.phone_number} />
-                  <ContactInfoItem icon={FiMapPin} label="Wilaya" value={sellerInfo.wilaya} />
+                  <ContactInfoItem icon={FiMail} value={sellerInfoCache[orderItems[0].seller_id].email} />
+                  <ContactInfoItem icon={FiPhone} value={sellerInfoCache[orderItems[0].seller_id].phone_number} />
+                  <ContactInfoItem icon={FiMapPin} label="Wilaya" value={sellerInfoCache[orderItems[0].seller_id].wilaya} />
                 </div>
               ) : (
                 <p className="text-gray-500">Seller information not available</p>
@@ -602,25 +814,25 @@ const OrderDetailPage = () => {
               <div className="flex items-center justify-between mb-3">
                 <span className="text-gray-600">Subtotal</span>
                 <span className="font-medium text-gray-800">
-                  ${order.total_amount ? (parseFloat(order.total_amount)).toFixed(2) : calculateTotal().toFixed(2)}
+                  DZD {order.total_amount ? parseFloat(order.total_amount).toFixed(2) : calculateTotal().toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-gray-600">Shipping</span>
-                <span className="font-medium text-gray-800">${order.shipping_cost ? parseFloat(order.shipping_cost).toFixed(2) : '0.00'}</span>
+                <span className="font-medium text-gray-800">DZD {order.shipping_cost ? parseFloat(order.shipping_cost).toFixed(2) : '0.00'}</span>
               </div>
               <div className="border-t border-gray-200 pt-3 mt-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-700">Total</span>
                   <span className="font-bold text-gray-900">
-                    ${order.total_amount ? (parseFloat(order.total_amount)).toFixed(2) : calculateTotal().toFixed(2)}
+                    DZD {order.total_amount ? parseFloat(order.total_amount).toFixed(2) : calculateTotal().toFixed(2)}
                   </span>
                 </div>
               </div>
             </InfoCard>
           </div>
 
-          {/* Dynamic Order Status Timeline */}
+          {/* Order Status Timeline */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-gray-800">Order Status</h2>
@@ -628,11 +840,7 @@ const OrderDetailPage = () => {
                 Last updated: {formatDate(order.updated_at || order.order_date)}
               </div>
             </div>
-            
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg">
-              
-
-              {/* Dynamic Status Steps */}
               <div className="space-y-0">
                 {getOrderStatusSteps(order, orderStatus).map((step, index, array) => (
                   <OrderStatusStep
@@ -647,11 +855,10 @@ const OrderDetailPage = () => {
                   />
                 ))}
               </div>
-
             </div>
           </div>
 
-          {/* Order Items - Fixed to correctly display product names */}
+          {/* Order Items with Seller Information */}
           <h2 className="text-lg font-medium text-gray-800 mb-4">Order Items</h2>
           <div className="bg-white rounded-lg overflow-hidden shadow border border-gray-100">
             <div className="divide-y divide-gray-200">
@@ -675,18 +882,21 @@ const OrderDetailPage = () => {
                         </div>
                       )}
                     </div>
-                    
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-800">
-                        {getProductName(item)}
-                      </h3>
-                      <div className="flex justify-between items-center mt-1">
-                        <div className="text-sm text-gray-600">
-                          Quantity: {item.quantity || 0} × ${getItemPrice(item)}
+                      <h3 className="font-medium text-gray-800">{getProductName(item)}</h3>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Quantity: {item.quantity || 0} × DZD {getItemPrice(item)}
+                      </div>
+                      {sellerInfoCache[item.seller_id] && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          Seller: {formatFullName(
+                            sellerInfoCache[item.seller_id].first_name,
+                            sellerInfoCache[item.seller_id].last_name
+                          )}
                         </div>
-                        <div className="font-medium text-gray-900">
-                          ${(getItemPrice(item) * (item.quantity || 0)).toFixed(2)}
-                        </div>
+                      )}
+                      <div className="text-sm text-gray-600 mt-1">
+                        Total: DZD {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -706,7 +916,6 @@ const OrderDetailPage = () => {
         >
           Back to Orders
         </button>
-
       </div>
     </div>
   );

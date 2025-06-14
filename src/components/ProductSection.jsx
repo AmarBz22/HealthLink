@@ -3,33 +3,36 @@ import { FiPlus, FiShoppingCart, FiCamera, FiX } from 'react-icons/fi';
 import ProductCard from './ProductCard';
 import ImageSearchComponent from './ImageSearch';
 
-const ProductsSection = ({ 
-  products, 
-  isOwner, 
+const ProductsSection = ({
+  products,
+  isOwner,
   storeId,
   userRole,
-  productType = "new", // Add productType prop with default value
   deletingProductId,
   processingInventory,
-  storageUrl, 
-  onAddProduct, 
-  onDeleteProduct, 
+  storageUrl,
+  onAddProduct,
+  onDeleteProduct,
   onEditProduct,
   onPromoteProduct,
-  onAddToCart
+  onAddToCart,
 }) => {
   const [showImageSearch, setShowImageSearch] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Define allowed product types
+  const allowedProductTypes = ['new', 'used_equipment'];
+
+  // Filter out unwanted product types from the products array
+  const validProducts = products.filter((product) => allowedProductTypes.includes(product.type));
+
   const handleSearchResults = (results) => {
-    // Filter search results to match the current product type
-    const filteredResults = results.filter(item => {
-      // Handle the nested structure from your API response
+    // Filter search results to include only allowed product types
+    const filteredResults = results.filter((item) => {
       const product = item.product || item;
-      return product.type === productType;
+      return allowedProductTypes.includes(product.type);
     });
-    
     setSearchResults(filteredResults);
     setHasSearched(true);
   };
@@ -51,21 +54,19 @@ const ProductsSection = ({
     setHasSearched(false);
   };
 
-  // Process search results to extract product data if needed
-  const processedSearchResults = searchResults.map(item => {
-    // If the search result has nested structure, extract the product
+  // Process search results to extract product data
+  const processedSearchResults = searchResults.map((item) => {
     if (item.product) {
       return {
         ...item.product,
-        // Add image information if available
         primary_image: item.image?.image_path,
-        distance: item.distance // Keep search relevance score if needed
+        distance: item.distance,
       };
     }
     return item;
   });
 
-  const displayProducts = processedSearchResults.length > 0 ? processedSearchResults : products;
+  const displayProducts = hasSearched && processedSearchResults.length > 0 ? processedSearchResults : validProducts;
   const isShowingSearchResults = hasSearched && processedSearchResults.length > 0;
   const isShowingNoResults = hasSearched && processedSearchResults.length === 0;
 
@@ -74,10 +75,10 @@ const ProductsSection = ({
     if (userRole === 'Dentist' || userRole === 'Doctor') {
       return 'Add Used Equipment';
     }
-    return 'Add Product';
+    return 'Add New Product';
   };
 
-  if (products.length === 0 && !isShowingSearchResults && !isShowingNoResults) {
+  if (validProducts.length === 0 && !isShowingSearchResults && !isShowingNoResults) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8 text-center">
         <div className="flex justify-center mb-4">
@@ -87,10 +88,9 @@ const ProductsSection = ({
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No products available</h3>
         <p className="text-gray-600 mb-6">There are no products to display at this time.</p>
-        
         {isOwner && (
           <button
-            onClick={onAddProduct}
+            onClick={() => onAddProduct(userRole === 'Dentist' || userRole === 'Doctor' ? 'used_equipment' : 'new')}
             className="inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors"
           >
             <FiPlus className="mr-2" /> {getAddProductButtonText()}
@@ -102,24 +102,23 @@ const ProductsSection = ({
 
   return (
     <div>
-      {/* Header with controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="text-sm text-gray-500">
           {isShowingSearchResults ? (
             <span>
-              {processedSearchResults.length} search {processedSearchResults.length === 1 ? 'result' : 'results'} found
+              {processedSearchResults.length} search{' '}
+              {processedSearchResults.length === 1 ? 'result' : 'results'} found
             </span>
           ) : isShowingNoResults ? (
             <span>No similar products found</span>
           ) : (
             <span>
-              {products.length} {products.length === 1 ? 'product' : 'products'} available
+              {validProducts.length}{' '}
+              {validProducts.length === 1 ? 'product' : 'products'} available
             </span>
           )}
         </div>
-        
         <div className="flex items-center gap-3">
-          {/* Image Search Button */}
           {!showImageSearch && (
             <button
               onClick={() => setShowImageSearch(true)}
@@ -128,8 +127,6 @@ const ProductsSection = ({
               <FiCamera className="mr-2" size={16} /> Search by Image
             </button>
           )}
-
-          {/* Reset Search Results */}
           {(isShowingSearchResults || isShowingNoResults) && (
             <button
               onClick={resetImageSearch}
@@ -138,11 +135,9 @@ const ProductsSection = ({
               <FiX className="mr-2" size={16} /> Show All Products
             </button>
           )}
-          
-          {/* Add Product Button (Owner Only) */}
           {isOwner && (
             <button
-              onClick={onAddProduct}
+              onClick={() => onAddProduct(userRole === 'Dentist' || userRole === 'Doctor' ? 'used_equipment' : 'new')}
               className="inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#00695C] transition-colors shadow-sm"
             >
               <FiPlus className="mr-2" /> {getAddProductButtonText()}
@@ -150,8 +145,6 @@ const ProductsSection = ({
           )}
         </div>
       </div>
-
-      {/* Image Search Component */}
       <ImageSearchComponent
         isVisible={showImageSearch}
         searchResults={processedSearchResults}
@@ -160,8 +153,6 @@ const ProductsSection = ({
         onReset={handleResetSearch}
         onClose={handleCloseSearch}
       />
-
-      {/* Products Grid */}
       {!isShowingNoResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {displayProducts.map((product) => (

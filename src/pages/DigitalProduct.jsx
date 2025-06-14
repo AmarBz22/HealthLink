@@ -1,289 +1,388 @@
-import { useState } from 'react';
-import { 
-  FiPlay, 
-  FiExternalLink, 
-  FiStar,
-  FiShield,
-  FiCpu,
-  FiCloud,
-  FiActivity,
-  FiUsers,
-  FiCheck,
-  FiArrowRight,
-  FiLink,
-  FiCopy
-} from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiExternalLink, FiShield, FiActivity, FiPackage, FiMessageCircle, FiEdit, FiTrash2, FiAlertTriangle } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const DigitalProductPage = () => {
+const DigitalProductsPage = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, product: null });
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const [showUrlModal, setShowUrlModal] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState('');
+  useEffect(() => {
+    const fetchUserAndProducts = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
 
-  // Product data
-  const product = {
-    name: "AI Clinic",
-    company: "Insyeb | Tech Beyond Limits",
-    tagline: "24/7 Virtual Assistant for Medical Appointment Scheduling",
-    description: "Streamline medical appointment scheduling through natural, conversational interactions - like having a digital receptionist that never sleeps.",
-    image: "/api/placeholder/600/400",
-    rating: 4.8,
-    reviews: 89,
-    price: "Custom",
-    type: "subscription",
-    demoUrl: "https://www.insyeb.com/products/ai-clinic",
-    productUrl: "https://www.insyeb.com/products/ai-clinic",
-    docsUrl: "https://www.insyeb.com/docs",
-    supportUrl: "https://www.insyeb.com/support",
-    
-    features: [
-      "Natural conversation interface",
-      "Smart appointment finder",
-      "Healthcare knowledge base",
-      "Symptom-to-specialist guidance",
-      "24/7 availability",
-      "Calendar system integration",
-      "Automatic appointment reminders",
-      "Multi-device accessibility"
-    ],
-    
-    benefits: [
-      {
-        icon: <FiUsers />,
-        title: "Reduce Phone Calls by 70%",
-        description: "Free up your staff time for critical tasks while patients book appointments through natural conversations."
-      },
-      {
-        icon: <FiCpu />,
-        title: "Smart Appointment Matching",
-        description: "AI intelligently suggests optimal appointment times based on doctor availability and patient preferences."
-      },
-      {
-        icon: <FiActivity />,
-        title: "24/7 Patient Access",
-        description: "Patients can book appointments anytime, avoiding phone tag and waiting on hold during busy hours."
-      },
-      {
-        icon: <FiShield />,
-        title: "Easy Integration",
-        description: "Compatible with existing calendar systems, minimal setup required with no new hardware needed."
+        // Fetch user data from API
+        const userResponse = await axios.get('http://localhost:8000/api/user', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const user = userResponse.data;
+
+        if (user) {
+          setIsAuthenticated(true);
+          // Check if the user's role is "Admin"
+          setIsAdmin(user.role === 'Admin');
+        } else {
+          navigate('/login');
+          return;
+        }
+
+        // Fetch digital products from API
+        const productsResponse = await axios.get('http://localhost:8000/api/digital-products', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Handle the response data structure
+        const productsData = productsResponse.data.data || productsResponse.data;
+        setProducts(Array.isArray(productsData) ? productsData : []);
+        
+      } catch (error) {
+        console.error('Failed to load user or products:', error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('authToken');
+          navigate('/login');
+        } else {
+          setError('Failed to load products. Please try again.');
+        }
+      } finally {
+        setLoading(false);
       }
-    ],
-    
-    specifications: {
-      "Platform": "Web-based virtual assistant",
-      "Deployment": "Cloud-hosted, browser accessible",
-      "Integration": "Compatible with existing calendars",
-      "Setup": "Minimal configuration required",
-      "Access": "Any device with web browser",
-      "Support": "Personalized demo available"
+    };
+
+    fetchUserAndProducts();
+  }, [navigate]);
+
+  const handleDeleteProduct = async (product) => {
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      await axios.delete(`http://localhost:8000/api/digital-products/${product.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update local state to remove the deleted product
+      setProducts(prevProducts => prevProducts.filter(p => p.id !== product.id));
+      
+      console.log(`Product "${product.title}" deleted successfully`);
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      setError('Failed to delete product. Please try again.');
+      // You might want to show an error toast/notification here
+    } finally {
+      setDeleting(false);
+      setDeleteModal({ isOpen: false, product: null });
     }
   };
 
-  const handleDemoClick = () => {
-    window.open(product.demoUrl, '_blank');
+  const openDeleteModal = (product) => {
+    setDeleteModal({ isOpen: true, product });
   };
 
-  const handleContactSales = () => {
-    console.log('Contact sales clicked');
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, product: null });
   };
 
-  const handleUrlClick = (url) => {
-    window.open(url, '_blank');
+  // Helper function to get the full URL for images
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `http://localhost:8000/storage/${imagePath}`;
   };
 
-  const copyToClipboard = (url, type) => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedUrl(type);
-      setTimeout(() => setCopiedUrl(''), 2000);
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      </div>
+    );
+  }
 
-  const urls = [
-    { label: "Live Demo", url: product.demoUrl, type: "demo", icon: <FiPlay /> },
-    { label: "Product Page", url: product.productUrl, type: "product", icon: <FiExternalLink /> },
-    { label: "Documentation", url: product.docsUrl, type: "docs", icon: <FiCheck /> },
-    { label: "Support Center", url: product.supportUrl, type: "support", icon: <FiUsers /> }
-  ];
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex justify-center items-center p-4">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-xl border border-gray-200/50">
+          <div className="w-16 h-16 bg-[#00796B]/10 rounded-xl flex items-center justify-center mx-auto mb-6">
+            <FiShield className="w-8 h-8 text-[#00796B]" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to access our digital products.</p>
+          <button
+            onClick={() => navigate('/login')}
+            className="px-8 py-4 bg-[#00796B] text-white rounded-xl hover:bg-[#00695C] focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:ring-offset-2 transition-all duration-200 font-semibold hover:shadow-lg hover:-translate-y-0.5"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-[#00796B] to-[#004D40] rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">I</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Insyeb</h1>
-                <p className="text-sm text-gray-600">Tech Beyond Limits</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowUrlModal(true)}
-                className="border border-[#00796B] text-[#00796B] px-4 py-2 rounded-lg hover:bg-[#00796B] hover:text-white transition-colors flex items-center gap-2"
-              >
-                <FiLink />
-                URLs
-              </button>
-              <button
-                onClick={handleContactSales}
-                className="bg-[#00796B] text-white px-6 py-2 rounded-lg hover:bg-[#00695C] transition-colors"
-              >
-                Contact Sales
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Product Hero */}
-      <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Product Info */}
-            <div>
-              <div className="mb-4">
-                <span className="bg-[#B2DFDB] text-[#00796B] px-3 py-1 rounded-full text-sm font-medium">
-                  Virtual Medical Assistant
-                </span>
-              </div>
-              
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                {product.name}
-              </h1>
-              
-              <p className="text-xl text-gray-600 mb-4">
-                {product.tagline}
-              </p>
-              
-              {/* Compact Description */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <p className="text-gray-700 text-sm leading-relaxed">
-                  {product.description}
-                </p>
-              </div>
-
-              {/* Rating & Price */}
-              <div className="flex items-center gap-6 mb-8">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    {[...Array(5)].map((_, i) => (
-                      <FiStar key={i} className="text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  <span className="text-gray-700 font-medium">{product.rating}</span>
-                  <span className="text-gray-500">({product.reviews} reviews)</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-[#00796B]">{product.price}</span>
-                  <span className="text-gray-500">pricing</span>
-                </div>
-              </div>
-
-              {/* CTA Buttons */}
-              <div className="flex gap-4">
-                <button
-                  onClick={handleDemoClick}
-                  className="bg-[#00796B] text-white px-8 py-3 rounded-lg hover:bg-[#00695C] transition-colors flex items-center gap-2"
-                >
-                  <FiPlay />
-                  Schedule Demo
-                </button>
-                <button
-                  onClick={handleContactSales}
-                  className="border-2 border-[#00796B] text-[#00796B] px-8 py-3 rounded-lg hover:bg-[#00796B] hover:text-white transition-colors flex items-center gap-2"
-                >
-                  Get Started
-                  <FiArrowRight />
-                </button>
-              </div>
-            </div>
-
-            {/* Product Image */}
-            <div className="relative">
-              <div className="bg-gradient-to-br from-[#B2DFDB] to-[#00796B] rounded-2xl p-8">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full rounded-lg shadow-lg"
-                />
-              </div>
-              {/* Floating feature badges */}
-              <div className="absolute -top-4 -right-4 bg-white rounded-lg shadow-lg p-3">
-                <div className="flex items-center gap-2">
-                  <FiActivity className="text-[#00796B]" />
-                  <span className="text-sm font-medium">24/7 Available</span>
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -left-4 bg-white rounded-lg shadow-lg p-3">
-                <div className="flex items-center gap-2">
-                  <FiUsers className="text-[#00796B]" />
-                  <span className="text-sm font-medium">Reduces Calls 70%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* URL Modal */}
-      {showUrlModal && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Product URLs</h3>
-              <button
-                onClick={() => setShowUrlModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-white border-b border-gray-200/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            <div className="inline-flex items-center space-x-3 bg-[#00796B]/10 backdrop-blur-sm rounded-full px-4 py-2 border border-[#00796B]/20 mb-6">
+              <div className="w-2 h-2 bg-[#00796B] rounded-full animate-pulse"></div>
+              <span className="text-[#00796B] font-medium text-sm">Digital Solutions</span>
             </div>
             
-            <div className="space-y-3">
-              {urls.map((item) => (
-                <div key={item.type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[#00796B]">{item.icon}</span>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{item.label}</p>
-                      <p className="text-xs text-gray-500 truncate max-w-48">{item.url}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => copyToClipboard(item.url, item.type)}
-                      className="p-2 text-gray-400 hover:text-[#00796B] transition-colors"
-                      title="Copy URL"
-                    >
-                      {copiedUrl === item.type ? (
-                        <FiCheck className="text-green-500" />
-                      ) : (
-                        <FiCopy />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleUrlClick(item.url)}
-                      className="p-2 text-gray-400 hover:text-[#00796B] transition-colors"
-                      title="Open URL"
-                    >
-                      <FiExternalLink />
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-6">
+              Digital Products for
+              <span className="block text-[#00796B]">Operational Excellence</span>
+            </h1>
+            
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8">
+              Discover premium digital tools designed to enhance operational efficiency.
+            </p>
+            
+            <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-md border border-gray-200/50">
+                <FiActivity className="text-[#00796B]"/>
+                <span className="text-sm font-medium text-gray-700">Real-time Integration</span>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => navigate('/add-Digital-Products')}
+                  className="px-6 py-3 bg-[#00796B] text-white font-semibold rounded-xl hover:bg-[#00695C] transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                >
+                  Add New Product
+                </button>
+              )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+            {error}
+            <button 
+              onClick={() => setError('')}
+              className="ml-4 text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
 
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Products Grid */}
+        {products.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+              <FiPackage className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Products Found</h3>
+            <p className="text-gray-600">No digital products available at the moment.</p>
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/add-Digital-Products')}
+                className="mt-6 px-6 py-3 bg-[#00796B] text-white font-semibold rounded-xl hover:bg-[#00695C] transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              >
+                Add First Product
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {products.map((product, index) => (
+              <div
+                key={product.id}
+                className="group bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+                style={{
+                  animationDelay: `${index * 100}ms`
+                }}
+              >
+                <div className="relative overflow-hidden">
+                  <img
+                    src={getImageUrl(product.product_image) || 'https://picsum.photos/600/400?random=' + product.id}
+                    alt={`${product.title} preview`}
+                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      e.target.src = 'https://picsum.photos/600/400?random=' + product.id;
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                  
+                  <div className="absolute top-6 left-6">
+                    <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-xl p-2 shadow-lg">
+                      <img
+                        src={getImageUrl(product.logo) || 'https://picsum.photos/100/100?random=' + product.id}
+                        alt="Company logo"
+                        className="w-full h-full object-contain rounded-lg"
+                        onError={(e) => {
+                          e.target.src = 'https://picsum.photos/100/100?random=' + product.id;
+                        }}
+                      />
+                    </div>
+                  </div>
 
+                  {/* Admin Controls Overlay */}
+                  {isAdmin && (
+                    <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        onClick={() => navigate(`/Digital-Products/edit/${product.id}`)}
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white transition-all duration-200"
+                        title="Edit Product"
+                      >
+                        <FiEdit className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(product)}
+                        className="p-2 bg-red-500/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-red-600 transition-all duration-200"
+                        title="Delete Product"
+                      >
+                        <FiTrash2 className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-8">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-2xl font-bold text-gray-900 group-hover:text-[#00796B] transition-colors">
+                      {product.title}
+                    </h3>
+                  </div>
+                  
+                  <p className="text-gray-600 leading-relaxed mb-6">
+                    {product.description}
+                  </p>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <a
+                        href={product.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-6 py-3 bg-[#00796B] text-white font-semibold rounded-xl hover:bg-[#00695C] focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:ring-offset-2 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group"
+                      >
+                        <span>Explore Solution</span>
+                        <FiExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </a>
+                      {isAdmin && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/Digital-Products/edit/${product.id}`)}
+                            className="flex items-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all duration-200"
+                          >
+                            <FiEdit className="w-4 h-4" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(product)}
+                            className="flex items-center gap-2 px-4 py-3 bg-red-100 text-red-700 font-semibold rounded-xl hover:bg-red-200 transition-all duration-200"
+                          >
+                            <FiTrash2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Footer CTA */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center bg-gradient-to-r from-[#00796B] to-[#004D40] rounded-2xl p-12 text-white shadow-2xl">
+          <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Operations?</h2>
+          <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+            Join thousands of professionals who trust our digital solutions to improve operational efficiency.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <button className="px-8 py-4 bg-white text-[#00796B] font-bold rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
+              Schedule Demo
+            </button>
+            <button className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/20">
+              Contact Sales
+            </button>
+            <a
+              href="https://wa.me/+213696451116"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-8 py-4 bg-[#25D366] text-white font-semibold rounded-xl hover:bg-[#20BA56] transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            >
+              <FiMessageCircle className="w-5 h-5" />
+              Contact Us on WhatsApp
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <FiAlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Delete Product</h3>
+                  <p className="text-gray-600">This action cannot be undone</p>
+                </div>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Are you sure you want to delete <strong>"{deleteModal.product?.title}"</strong>? 
+                This will permanently remove the product from your catalog.
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all duration-200 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteProduct(deleteModal.product)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FiTrash2 className="w-4 h-4" />
+                      <span>Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default DigitalProductPage;
+export default DigitalProductsPage;

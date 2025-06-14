@@ -196,7 +196,7 @@ const SignupPage = () => {
                         className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
                           errors.first_name ? 'border-red-300' : 'border-gray-200'
                         }`}
-                        placeholder="John"
+                        placeholder="First Name"
                         required
                       />
                     </div>
@@ -219,7 +219,7 @@ const SignupPage = () => {
                         className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
                           errors.last_name ? 'border-red-300' : 'border-gray-200'
                         }`}
-                        placeholder="Doe"
+                        placeholder="Last Name"
                         required
                       />
                     </div>

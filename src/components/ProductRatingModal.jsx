@@ -90,7 +90,7 @@ const ProductRatingModal = ({
                 Order Delivered Successfully!
               </h2>
               <p className="text-sm text-gray-600">
-                Please rate the products from Order #{order.product_order_id}
+                Please rate the products 
               </p>
             </div>
           </div>
@@ -122,7 +122,7 @@ const ProductRatingModal = ({
                       <div className="flex items-center text-sm text-gray-600">
                         <span>Qty: {item.quantity || 1}</span>
                         <span className="mx-2">•</span>
-                        <span>${(productPrice * (item.quantity || 1)).toFixed(2)}</span>
+                        <span>DZD {(productPrice * (item.quantity || 1)).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

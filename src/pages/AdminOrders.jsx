@@ -20,87 +20,142 @@ const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [usersCache, setUsersCache] = useState({}); // Cache for user data
 
-  // Fetch current user data and check if admin
+  // Verify admin and fetch orders
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const verifyAdminAndFetchOrders = async () => {
       try {
         const token = localStorage.getItem('authToken');
         if (!token) {
-          toast.error('Please login to view orders');
+          toast.error('Please login to access orders');
           navigate('/login');
           return;
         }
 
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        };
+        // Verify if user is admin
+        const userResponse = await axios.get('http://localhost:8000/api/user', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
 
-        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
-        const userData = userResponse.data;
-        setCurrentUser(userData);
-
-        if (userData.role !== 'Admin') {
-          toast.error('Access denied. Admin privileges required.');
-          navigate('/orders');
+        if (userResponse.data.role !== 'Admin') {
+          toast.error('Unauthorized access. Admin privileges required.');
           return;
         }
-        
+
+        setIsAdmin(true);
+        setCurrentAdminId(userResponse.data.id);
+
+        // Fetch orders if admin
+        const ordersResponse = await axios.get('http://localhost:8000/api/product-orders', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        const ordersData = ordersResponse.data || [];
+
+        // Extract all unique user IDs (buyers and sellers)
+        const userIds = new Set();
+        ordersData.forEach(order => {
+          userIds.add(order.buyer_id);
+          order.items?.forEach(item => {
+            if (item.seller_id) {
+              userIds.add(item.seller_id);
+            }
+          });
+        });
+
+        // Fetch all user data concurrently
+        const userPromises = Array.from(userIds).map(userId => fetchUserById(userId, token));
+        await Promise.all(userPromises);
+
+        setOrders(ordersData);
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Error:', error);
         if (error.response?.status === 401) {
           localStorage.removeItem('authToken');
           navigate('/login');
+          toast.error('Session expired. Please login again.');
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to load orders');
         }
-        toast.error('Failed to load user information');
-      } finally {
-        setUserLoading(false);
-      }
-    };
-
-    fetchCurrentUser();
-  }, [navigate]);
-
-  // Fetch all orders
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (!currentUser || currentUser.role !== 'Admin') return;
-
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          toast.error('Authentication required');
-          return;
-        }
-
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        };
-
-        const response = await axios.get('http://localhost:8000/api/product-orders', { headers });
-        setOrders(response.data || []);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-        toast.error('Failed to load orders');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrders();
-  }, [currentUser]);
+    verifyAdminAndFetchOrders();
+  }, [navigate]);
+
+  // Fetch user data by ID
+  const fetchUserById = async (userId, token) => {
+    if (usersCache[userId]) {
+      return usersCache[userId];
+    }
+
+    try {
+      const response = await axios.get(`http://localhost:8000/api/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      const userData = response.data;
+
+      // Cache the user data
+      setUsersCache(prev => ({
+        ...prev,
+        [userId]: userData
+      }));
+
+      return userData;
+    } catch (error) {
+      console.error(`Error fetching user ${userId}:`, error);
+      return null;
+    }
+  };
+
+  // Get user full name
+  const getUserFullName = (userId) => {
+    const user = usersCache[userId];
+    if (!user) return `User ${userId}`;
+    return `${user.first_name} ${user.last_name}`.trim() || user.email || `User ${userId}`;
+  };
+
+  // Get seller name for an order (single seller)
+  const getSellerName = (order) => {
+    if (!order.items || order.items.length === 0) return 'No seller';
+    
+    const sellerId = order.items[0]?.seller_id;
+    if (!sellerId) return 'No seller';
+    
+    return getUserFullName(sellerId);
+  };
+
+  // Get seller ID for an order
+  const getSellerId = (order) => {
+    if (!order.items || order.items.length === 0) return null;
+    return order.items[0]?.seller_id;
+  };
 
   // Filter orders based on search query and status
   const filteredOrders = orders.filter(order => {
+    const buyerName = getUserFullName(order.buyer_id);
+    const sellerName = getSellerName(order);
+    
     const matchesSearch = 
       order.product_order_id?.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.delivery_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.total_amount?.toString().includes(searchQuery.toLowerCase());
+      order.total_amount?.toString().includes(searchQuery.toLowerCase()) ||
+      buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sellerName.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' || 
       order.order_status?.toLowerCase() === filterStatus.toLowerCase();
@@ -111,13 +166,14 @@ const AdminOrders = () => {
   // Get status badge color
   const getStatusBadge = (status) => {
     const statusConfig = {
-      'Pending': 'bg-amber-100 text-amber-800',
-      'Processing': 'bg-blue-100 text-blue-800', 
-      'Completed': 'bg-green-100 text-green-800',
-      'Cancelled': 'bg-red-100 text-red-800'
+      'pending': 'bg-amber-100 text-amber-800',
+      'processing': 'bg-blue-100 text-blue-800',
+      'shipped': 'bg-purple-100 text-purple-800',
+      'delivered': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800'
     };
 
-    return statusConfig[status] || 'bg-gray-100 text-gray-800';
+    return statusConfig[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
   };
 
   // Format date
@@ -130,12 +186,13 @@ const AdminOrders = () => {
     });
   };
 
-  // Format currency
+  // Format currency - always show DZD
   const formatCurrency = (amount) => {
-    if (!amount) return 'N/A';
-    return new Intl.NumberFormat('en-US', {
+    if (!amount) return '0.00 DZD';
+    return new Intl.NumberFormat('en-DZ', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'DZD',
+      minimumFractionDigits: 2
     }).format(amount);
   };
 
@@ -153,28 +210,25 @@ const AdminOrders = () => {
       .join(', ');
   };
 
-  if (userLoading || loading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
+      <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
       </div>
     );
   }
 
-  if (!currentUser || currentUser.role !== 'Admin') {
+  if (!isAdmin) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-red-50 border border-red-200 p-8 rounded-xl text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiUser className="text-red-600 text-2xl" />
-          </div>
-          <h2 className="text-red-800 text-2xl font-bold mb-2">Access Denied</h2>
-          <p className="text-red-600 mb-6">Admin privileges required to view all orders.</p>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
+          <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
             onClick={() => navigate('/orders')}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Go to Your Orders
+            Return to Your Orders
           </button>
         </div>
       </div>
@@ -205,8 +259,9 @@ const AdminOrders = () => {
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="canceled">Cancelled</option>
           </select>
 
           {/* Search */}
@@ -216,7 +271,7 @@ const AdminOrders = () => {
             </div>
             <input
               type="text"
-              placeholder="Search orders..."
+              placeholder="Search orders, users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
@@ -226,7 +281,7 @@ const AdminOrders = () => {
       </div>
 
       {/* Orders Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         {[
           { 
             title: 'Total Orders', 
@@ -236,20 +291,26 @@ const AdminOrders = () => {
           },
           { 
             title: 'Pending', 
-            value: orders.filter(o => o.order_status === 'Pending').length, 
+            value: orders.filter(o => o.order_status?.toLowerCase() === 'pending').length, 
             icon: FiClock, 
             color: 'border-amber-500'
           },
           { 
             title: 'Processing', 
-            value: orders.filter(o => o.order_status === 'Processing').length, 
-            icon: FiTruck, 
+            value: orders.filter(o => o.order_status?.toLowerCase() === 'processing').length, 
+            icon: FiDollarSign, 
             color: 'border-blue-500'
           },
           { 
-            title: 'Completed', 
-            value: orders.filter(o => o.order_status === 'Completed').length, 
-            icon: FiDollarSign, 
+            title: 'Shipped', 
+            value: orders.filter(o => o.order_status?.toLowerCase() === 'shipped').length, 
+            icon: FiTruck, 
+            color: 'border-purple-500'
+          },
+          { 
+            title: 'Delivered', 
+            value: orders.filter(o => o.order_status?.toLowerCase() === 'delivered').length, 
+            icon: FiPackage, 
             color: 'border-green-500'
           }
         ].map((stat, index) => (
@@ -290,6 +351,12 @@ const AdminOrders = () => {
                     Order Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Buyer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Seller
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Products
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -314,12 +381,38 @@ const AdminOrders = () => {
                         <div className="text-sm font-medium text-gray-900">
                           #{order.product_order_id}
                         </div>
-                        <div className="text-xs text-gray-500 flex items-center mt-1">
-                          <FiUser className="mr-1" />
-                          Buyer ID: {order.buyer_id}
-                        </div>
                         <div className="text-xs text-gray-500 mt-1">
                           📍 {order.delivery_address || 'No address'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <FiUser className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">
+                            {getUserFullName(order.buyer_id)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            ID: {order.buyer_id}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <FiUser className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">
+                            {getSellerName(order)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            ID: {getSellerId(order) || 'N/A'}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -336,9 +429,6 @@ const AdminOrders = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {formatCurrency(order.total_amount)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {order.payment_status || 'Unknown'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -20,12 +20,11 @@ const DeliverOrderModal = ({ orderId, orderNumber, onClose, onConfirm }) => {
         
         <div className="mb-6">
           <p className="text-gray-600 mb-4">
-            Are you sure you want to mark order <span className="font-semibold">#{orderNumber}</span> as delivered?
+            Are you sure you want to mark order as delivered?
           </p>
           <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
             <p className="text-green-800 text-sm">
-              <strong>Note:</strong> Only confirm delivery if you have received the order. 
-              This will mark the order as complete and finalize the transaction.
+              <strong>Note:</strong> Please confirm delivery only after you’ve received your order. Doing so will complete the order and finalize the transaction.
             </p>
           </div>
         </div>

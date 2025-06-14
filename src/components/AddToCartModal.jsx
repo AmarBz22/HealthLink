@@ -67,7 +67,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
           {/* Product info */}
           <div>
             <h4 className="font-medium text-gray-900">{product.product_name}</h4>
-            <p className="text-lg font-bold text-[#00796B]">${product.price}</p>
+            <p className="text-lg font-bold text-[#00796B]">DZD {product.price}</p>
           </div>
         </div>
         
@@ -99,7 +99,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
         {/* Total */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
           <span className="text-gray-600">Total:</span>
-          <span className="text-xl font-bold text-gray-900">${(product.price * quantity)}</span>
+          <span className="text-xl font-bold text-gray-900"> DZD {(product.price * quantity)}</span>
         </div>
         
         {/* Actions */}

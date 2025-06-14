@@ -11,7 +11,8 @@ import {
   FiPieChart,
   FiTrendingUp,
   FiGrid,
-  FiSearch
+  FiSearch,
+  FiShoppingCart
 } from 'react-icons/fi';
 
 const DashboardPage = () => {
@@ -22,31 +23,32 @@ const DashboardPage = () => {
   const [dashboardData, setDashboardData] = useState({
     users: [],
     stores: [],
-    products: []
+    products: [],
+    orders: []
   });
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Authorization states
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  
+  // Define authorized roles
+  const authorizedRoles = ['Admin', 'Supplier'];
+
   const getProductDisplayImage = (product, storageUrl = '') => {
-    // Handle new image structure (array of images)
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      // Find primary image or use the first image
       const primaryImage = product.images.find(img => img.is_primary === 1 || img.is_primary === true);
       const selectedImage = primaryImage || product.images[0];
-      
-      // Return the image path (assuming it's already a full URL or relative path)
       return selectedImage.image_path;
     }
     
-    // Legacy support for products with direct image property
     if (product.image) {
       return product.image.startsWith('http') ? product.image : `${storageUrl}/${product.image}`;
     }
     
-    // No image available
     return null;
   };
 
-  // Helper function to make API calls with better error handling
   const fetchWithErrorHandling = async (url, headers) => {
     try {
       console.log(`Fetching from URL: ${url}`);
@@ -55,7 +57,6 @@ const DashboardPage = () => {
       return response.data;
     } catch (error) {
       console.error(`Error fetching from ${url}:`, error.response || error);
-      // Store the error for debugging
       const errorDetail = {
         url,
         message: error.message,
@@ -63,19 +64,18 @@ const DashboardPage = () => {
         data: error.response?.data
       };
       setError(prevErrors => ({ ...prevErrors, [url]: errorDetail }));
-      // Still return empty data to prevent breaking the UI
       return [];
     }
   };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const verifyAuthorizationAndFetchData = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('authToken');
         
         if (!token) {
           toast.error('Please login to view dashboard');
-          console.log('No auth token found, redirecting to login');
           navigate('/login');
           return;
         }
@@ -85,56 +85,41 @@ const DashboardPage = () => {
           'Accept': 'application/json'
         };
 
-        console.log('Starting to fetch dashboard data with headers:', 
-          { Authorization: 'Bearer [REDACTED]', Accept: headers.Accept });
-
-        // Get authenticated user and role
+        // Verify user role and authorization
         const userResponse = await fetchWithErrorHandling('http://localhost:8000/api/user', headers);
         
         if (!userResponse || Object.keys(userResponse).length === 0) {
           toast.error('Failed to authenticate user');
-          console.error('User response is empty or invalid:', userResponse);
           setLoading(false);
           return;
         }
+
+        const currentUserRole = userResponse.role;
+        setUserRole(currentUserRole);
         
+        // Check if user role is authorized
+        if (!authorizedRoles.includes(currentUserRole)) {
+          setIsAuthorized(false);
+          setLoading(false);
+          return;
+        }
+
+        setIsAuthorized(true);
         setUser({
           ...userResponse,
           name: userResponse.first_name + ' ' + userResponse.last_name
         });
-        console.log('User data retrieved:', { 
-          name: userResponse.first_name + ' ' + userResponse.last_name, 
-          role: userResponse.role,
-          id: userResponse.id
-        });
-
-        // Check if user is admin or supplier, if not redirect
-        const userRole = userResponse.role?.toLowerCase();
-        if (userRole !== 'admin' && userRole !== 'supplier') {
-          toast.error('You do not have permission to access this page');
-          console.log('Unauthorized user trying to access dashboard, redirecting to home');
-          navigate('/');
-          return;
-        }
 
         // Fetch data based on user role
-        if (userRole === 'admin') {
-          // Admin can see all data
+        const userRoleLower = currentUserRole.toLowerCase();
+        
+        if (userRoleLower === 'admin') {
           const [usersData, storesData, productsData] = await Promise.all([
             fetchWithErrorHandling('http://localhost:8000/api/admin/users', headers),
             fetchWithErrorHandling('http://localhost:8000/api/stores', headers),
             fetchWithErrorHandling('http://localhost:8000/api/products', headers)
           ]);
           
-          console.log('Admin dashboard data fetched successfully:',
-            { 
-              usersCount: usersData?.length || 0, 
-              storesCount: storesData?.length || 0, 
-              productsCount: productsData?.length || 0 
-            }
-          );
-          
-          // Format and set admin data
           const formattedUsers = Array.isArray(usersData.users) ? usersData.users : 
                                 (Array.isArray(usersData) ? usersData : []);
           
@@ -142,48 +127,36 @@ const DashboardPage = () => {
             users: formattedUsers,
             stores: Array.isArray(storesData) ? storesData : [],
             products: Array.isArray(productsData) ? productsData : [],
+            orders: []
           });
-        } else if (userRole === 'supplier') {
-          // Supplier can only see their own stores and products
-          // Fetch all data first, then filter by owner_id
-          const [allStoresData, allProductsData] = await Promise.all([
+        } else if (userRoleLower === 'supplier') {
+          const [allStoresData, allProductsData, supplierOrdersData] = await Promise.all([
             fetchWithErrorHandling('http://localhost:8000/api/stores', headers),
-            fetchWithErrorHandling('http://localhost:8000/api/products', headers)
+            fetchWithErrorHandling('http://localhost:8000/api/products', headers),
+            fetchWithErrorHandling(`http://127.0.0.1:8000/api/product-orders/seller/${userResponse.id}`, headers)
           ]);
           
-          // Filter stores by owner_id matching user id
           const supplierStores = Array.isArray(allStoresData) ? 
             allStoresData.filter(store => store.owner_id === userResponse.id) : [];
           
-          // Filter products by owner_id matching user id (assuming products have owner_id)
-          // If products don't have owner_id directly, you might need to filter by store_id
           const supplierProducts = Array.isArray(allProductsData) ? 
             allProductsData.filter(product => {
-              // If product has owner_id, use it directly
               if (product.owner_id) {
                 return product.owner_id === userResponse.id;
               }
-              // If product has store_id, check if it belongs to supplier's stores
               if (product.store_id) {
                 return supplierStores.some(store => store.id === product.store_id);
               }
               return false;
             }) : [];
           
-          console.log('Supplier dashboard data processed:',
-            { 
-              totalStores: allStoresData?.length || 0,
-              supplierStores: supplierStores.length,
-              totalProducts: allProductsData?.length || 0,
-              supplierProducts: supplierProducts.length,
-              userId: userResponse.id
-            }
-          );
+          const supplierOrders = Array.isArray(supplierOrdersData) ? supplierOrdersData : [];
           
           setDashboardData({
-            users: [], // Suppliers don't see users
+            users: [],
             stores: supplierStores,
             products: supplierProducts,
+            orders: supplierOrders
           });
         }
       } catch (error) {
@@ -202,37 +175,32 @@ const DashboardPage = () => {
       }
     };
 
-    fetchDashboardData();
+    verifyAuthorizationAndFetchData();
   }, [navigate]);
 
-  // Quick statistics calculation
   const stats = {
     totalStores: dashboardData.stores?.length || 0,
     totalProducts: dashboardData.products?.length || 0,
     totalUsers: dashboardData.users?.length || 0,
-    activeUsers: dashboardData.users?.filter(u => u.banned === 0)?.length || 0
+    activeUsers: dashboardData.users?.filter(u => u.banned === 0)?.length || 0,
+    totalOrders: dashboardData.orders?.length || 0
   };
 
-  // Filter function based on search term
   const filterData = (items, searchKey) => {
     if (!searchTerm || !items) return items || [];
     
-    // Log what we're filtering for debugging
     console.log(`Filtering ${items.length} items with search term "${searchTerm}" using key "${searchKey}"`);
     
     return items.filter(item => {
-      // First check if the searchKey exists on the item
       if (!item[searchKey]) {
         console.log(`Item missing ${searchKey} property:`, item);
         return false;
       }
       
-      // Then do the search
       return item[searchKey].toLowerCase().includes(searchTerm.toLowerCase());
     });
   };
 
-  // Display debug information if there are errors
   const renderDebugInfo = () => {
     if (!error) return null;
     
@@ -246,13 +214,45 @@ const DashboardPage = () => {
     );
   };
 
-  // Check if user is admin
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const isSupplier = user?.role?.toLowerCase() === 'supplier';
 
+  // Show unauthorized access page
+  if (!isAuthorized && !loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md w-full mx-4">
+          <div className="mx-auto h-16 w-16 text-red-500 mb-4">
+            <FiHome className="w-full h-full" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Access Restricted</h2>
+          <p className="text-gray-600 mb-2">
+            Dashboard access is not available for {userRole} accounts.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            This section is restricted to Admin and Supplier roles only.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
+            >
+              Return to Home
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center">
@@ -285,7 +285,6 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Display any debug information */}
       {renderDebugInfo()}
 
       {loading ? (
@@ -294,7 +293,6 @@ const DashboardPage = () => {
         </div>
       ) : (
         <>
-          {/* Stats Cards */}
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
             <div className="bg-white rounded-xl shadow p-6 border-l-4 border-[#00796B]">
               <div className="flex items-center">
@@ -359,23 +357,18 @@ const DashboardPage = () => {
               <div className="bg-white rounded-xl shadow p-6 border-l-4 border-orange-500">
                 <div className="flex items-center">
                   <div className="p-3 rounded-full bg-orange-100 mr-4">
-                    <FiTrendingUp className="h-6 w-6 text-orange-500" />
+                    <FiShoppingCart className="h-6 w-6 text-orange-500" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-sm font-medium">Store Performance</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      <FiTrendingUp className="inline h-5 w-5 text-green-500 mr-1" />
-                      8.5%
-                    </p>
+                    <p className="text-gray-500 text-sm font-medium">My Orders</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Stores List */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -384,7 +377,7 @@ const DashboardPage = () => {
                     {isSupplier ? 'My Stores' : 'Stores'}
                   </h2>
                   <button 
-                    onClick={() => navigate('/stores')}
+                    onClick={() => navigate('/Admin-stores')}
                     className="text-sm text-[#00796B] hover:underline"
                   >
                     View all
@@ -431,7 +424,6 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Right Column - Products List */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -440,110 +432,107 @@ const DashboardPage = () => {
                     {isSupplier ? 'My Products' : 'Products'}
                   </h2>
                   <button 
-                    onClick={() => navigate('/products')}
+                    onClick={() => navigate('/Admin-products')}
                     className="text-sm text-[#00796B] hover:underline"
                   >
                     View all
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-  <table className="min-w-full divide-y divide-gray-200">
-    <thead className="bg-gray-50">
-      <tr>
-        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Product
-        </th>
-        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Price
-        </th>
-        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Category
-        </th>
-        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Stock
-        </th>
-      </tr>
-    </thead>
-    <tbody className="bg-white divide-y divide-gray-200">
-  {dashboardData.products.length > 0 ? (
-    filterData(dashboardData.products, 'product_name').slice(0, 6).map((product, index) => {
-      const displayImage = getProductDisplayImage(product);
-      
-      return (
-        <tr key={product.id || index} className="hover:bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div className="flex items-center">
-              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 overflow-hidden">
-                {displayImage ? (
-                  <img 
-                    src={displayImage} 
-                    alt={product.product_name} 
-                    className="h-10 w-10 rounded-lg object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      // Replace with placeholder or fallback to text
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <span 
-                  className={`h-full w-full flex items-center justify-center text-sm font-medium ${displayImage ? 'hidden' : 'flex'}`}
-                >
-                  {product.product_name?.charAt(0) || 'P'}
-                </span>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-900">
-                  {product.product_name}
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Stock
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dashboardData.products.length > 0 ? (
+                        filterData(dashboardData.products, 'product_name').slice(0, 6).map((product, index) => {
+                          const displayImage = getProductDisplayImage(product);
+                          
+                          return (
+                            <tr key={product.id || index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 overflow-hidden">
+                                    {displayImage ? (
+                                      <img 
+                                        src={displayImage} 
+                                        alt={product.product_name} 
+                                        className="h-10 w-10 rounded-lg object-cover"
+                                        onError={(e) => {
+                                          e.target.onerror = null;
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span 
+                                      className={`h-full w-full flex items-center justify-center text-sm font-medium ${displayImage ? 'hidden' : 'flex'}`}
+                                    >
+                                      {product.product_name?.charAt(0) || 'P'}
+                                    </span>
+                                  </div>
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {product.product_name}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">DZD{product.price || '0.00'}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {product.category || 'Uncategorized'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  product.stock > 0 
+                                    ? product.stock > 10 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {product.stock || 0} units
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+                            {isSupplier ? 'No products found. Add your first product!' : 'No products found'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  
+                  {dashboardData.products.length > 0 && filterData(dashboardData.products, 'product_name').length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 text-sm">No matching products found</p>
+                    </div>
+                  )}
                 </div>
-                
-              </div>
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div className="text-sm text-gray-900">${product.price || '0.00'}</div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {product.category || 'Uncategorized'}
-            </span>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              product.stock > 0 
-                ? product.stock > 10 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {product.stock || 0} units
-            </span>
-          </td>
-        </tr>
-      );
-    })
-  ) : (
-    <tr>
-      <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
-        {isSupplier ? 'No products found. Add your first product!' : 'No products found'}
-      </td>
-    </tr>
-  )}
-</tbody>
-  </table>
-  
-  {dashboardData.products.length > 0 && filterData(dashboardData.products, 'product_name').length === 0 && (
-    <div className="text-center py-8">
-      <p className="text-gray-500 text-sm">No matching products found</p>
-    </div>
-  )}
-</div>
               </div>
             </div>
           </div>
           
-          {/* Bottom Section - Users List (Admin Only) */}
           {isAdmin && (
             <div className="mt-8 bg-white rounded-xl shadow overflow-hidden">
               <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -577,7 +566,6 @@ const DashboardPage = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Location
                       </th>
-                      
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -637,7 +625,6 @@ const DashboardPage = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {user.wilaya || 'N/A'}
                             </td>
-                           
                           </tr>
                         ))
                     ) : (

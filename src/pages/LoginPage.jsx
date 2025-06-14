@@ -101,16 +101,7 @@ const LoginPage = () => {
 
           {/* Features */}
           <div className="grid gap-4">
-            <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
-              <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
-                <Shield className="w-6 h-6 text-[#00796B]" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">HIPAA Compliant</h3>
-                <p className="text-sm text-gray-600">Enterprise-grade security for healthcare data</p>
-              </div>
-            </div>
-            
+    
             <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
               <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
                 <Activity className="w-6 h-6 text-[#00796B]" />

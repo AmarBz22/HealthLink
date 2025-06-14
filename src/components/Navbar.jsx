@@ -165,19 +165,11 @@ const Navbar = () => {
               ? 'text-[#00796B] font-medium' 
               : 'text-gray-500 group-hover:text-[#00796B]'
           }`}>
-            Store
+            Stores
           </span>
         </Link>
 
-        {/* Digital Products - For all logged in users */}
-        <Link to="/digital-products" className="flex items-center space-x-1 group">
-          <Monitor 
-            className={`w-5 h-5 ${isActive('/digital-products') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
-          />
-          <span className={`text-sm ${isActive('/digital-products') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
-            Digital Products
-          </span>
-        </Link>
+     
         
         {/* Orders - For all logged in users, but Admin goes to admin orders */}
         <Link 
@@ -200,12 +192,9 @@ const Navbar = () => {
           </span>
         </Link>
         
-        {/* Products/Inventory - Admin goes to admin-products, others go to inventory-products */}
-        <Link 
-          to={userRole === 'Admin' ? "/admin-products" : "/inventory-products"} 
-          className="flex items-center space-x-1 group"
-        >
-          {userRole === 'Admin' ? (
+        {/* Products/Inventory - Admin goes to admin-products, others go to inventory-products (except Doctor and Dentist) */}
+        {userRole === 'Admin' ? (
+          <Link to="/admin-products" className="flex items-center space-x-1 group">
             <Tag 
               className={`w-5 h-5 ${
                 isActive('/admin-products') 
@@ -213,23 +202,35 @@ const Navbar = () => {
                   : 'text-gray-400 group-hover:text-[#00796B]'
               }`}
             />
-          ) : (
-            <Package 
-              className={`w-5 h-5 ${
+            <span className={`text-sm ${
+              isActive('/admin-products') 
+                ? 'text-[#00796B] font-medium' 
+                : 'text-gray-500 group-hover:text-[#00796B]'
+            }`}>
+              Products
+            </span>
+          </Link>
+        ) : (
+          /* Inventory - Only for users who are NOT Doctor or Dentist */
+          userRole && !['Doctor', 'Dentist'].includes(userRole) && (
+            <Link to="/inventory-products" className="flex items-center space-x-1 group">
+              <Package 
+                className={`w-5 h-5 ${
+                  isActive('/inventory-products') 
+                    ? 'text-[#00796B]' 
+                    : 'text-gray-400 group-hover:text-[#00796B]'
+                }`}
+              />
+              <span className={`text-sm ${
                 isActive('/inventory-products') 
-                  ? 'text-[#00796B]' 
-                  : 'text-gray-400 group-hover:text-[#00796B]'
-              }`}
-            />
-          )}
-          <span className={`text-sm ${
-            (isActive('/inventory-products') || isActive('/admin-products')) 
-              ? 'text-[#00796B] font-medium' 
-              : 'text-gray-500 group-hover:text-[#00796B]'
-          }`}>
-            {userRole === 'Admin' ? 'Products' : 'Inventory'}
-          </span>
-        </Link>
+                  ? 'text-[#00796B] font-medium' 
+                  : 'text-gray-500 group-hover:text-[#00796B]'
+              }`}>
+                Inventory
+              </span>
+            </Link>
+          )
+        )}
         
         {/* Users - Only for Admin */}
         {userRole === 'Admin' && (
@@ -254,6 +255,15 @@ const Navbar = () => {
             </span>
           </Link>
         )}
+           {/* Digital Products - For all logged in users */}
+           <Link to="/digital-products" className="flex items-center space-x-1 group">
+          <Monitor 
+            className={`w-5 h-5 ${isActive('/digital-products') ? 'text-[#00796B]' : 'text-gray-400 group-hover:text-[#00796B]'}`}
+          />
+          <span className={`text-sm ${isActive('/digital-products') ? 'text-[#00796B] font-medium' : 'text-gray-500 group-hover:text-[#00796B]'}`}>
+            Digital Products
+          </span>
+        </Link>
       </div>
     );
   };
@@ -274,13 +284,7 @@ const Navbar = () => {
       {/* Right: Icons + Profile */}
       <div className="flex items-center gap-6">
         
-        {/* Notification Icon - Only show for logged in users */}
-        {isLoggedIn && (
-          <div className="relative">
-            <Bell className="w-5 h-5 text-gray-600 cursor-pointer hover:text-[#00796B]" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
-          </div>
-        )}
+        
 
         {/* Profile Picture/Guest Icon with Dropdown */}
         <div className="flex items-center space-x-4" ref={menuRef}>

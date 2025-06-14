@@ -11,8 +11,8 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiUsers,
-  FiTag,
-  FiTrash2
+  FiTrash2,
+  FiPlus
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -25,11 +25,11 @@ const AdminStoreList = () => {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [ownerNames, setOwnerNames] = useState({}); // New state for owner names
-  const [loadingOwnerNames, setLoadingOwnerNames] = useState({}); // Loading state for individual owners
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState(null);
+  const [ownerNames, setOwnerNames] = useState({});
+  const [loadingOwnerNames, setLoadingOwnerNames] = useState({});
+  const [error, setError] = useState(null);
   
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({
@@ -39,55 +39,25 @@ const AdminStoreList = () => {
     isDeleting: false
   });
 
-  // Fetch current user data and check if admin
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          toast.error('Please login to view stores');
-          navigate('/login');
-          return;
-        }
-
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        };
-
-        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
-        const userData = userResponse.data;
-        setCurrentUser(userData);
-
-        if (userData.role !== 'Admin') {
-          toast.error('Access denied. Admin privileges required.');
-          navigate('/stores');
-          return;
-        }
-        
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        if (error.response?.status === 401) {
-          localStorage.removeItem('authToken');
-          navigate('/login');
-        }
-        toast.error('Failed to load user information');
-      } finally {
-        setUserLoading(false);
-      }
-    };
-
-    fetchCurrentUser();
-  }, [navigate]);
+  // Utility functions
+  const handleApiError = (error, context = 'Operation') => {
+    console.error(`${context} error:`, error);
+    
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      navigate('/login');
+      return 'Session expired. Please log in again.';
+    }
+    
+    return error.response?.data?.message || `${context} failed. Please try again.`;
+  };
 
   // Function to fetch owner name for a specific owner_id
   const fetchOwnerName = async (ownerId, token) => {
-    // If owner name is already loaded or loading, skip
-    if (ownerNames[ownerId] || loadingOwnerNames[ownerId]) {
+    if (!ownerId || ownerNames[ownerId] || loadingOwnerNames[ownerId]) {
       return;
     }
 
-    // Set loading state for this owner
     setLoadingOwnerNames(prev => ({ ...prev, [ownerId]: true }));
 
     try {
@@ -102,7 +72,6 @@ const AdminStoreList = () => {
           }
         });
       } catch (firstError) {
-        // Try alternative endpoint
         apiUrl = `http://localhost:8000/api/users/${ownerId}`;
         response = await axios.get(apiUrl, {
           headers: { 
@@ -120,7 +89,6 @@ const AdminStoreList = () => {
       
       setOwnerNames(prev => ({ ...prev, [ownerId]: ownerDisplayName }));
     } catch (error) {
-      // Handle different types of errors gracefully
       let fallbackName = "Store Owner";
       if (error.response?.status === 401) {
         fallbackName = "Unauthorized";
@@ -136,26 +104,41 @@ const AdminStoreList = () => {
     }
   };
 
-  // Fetch all stores with owner information
+  // Verify admin and fetch stores
   useEffect(() => {
-    const fetchStores = async () => {
-      if (!currentUser || currentUser.role !== 'Admin') return;
-
+    const verifyAdminAndFetchStores = async () => {
       try {
         const token = localStorage.getItem('authToken');
         if (!token) {
-          toast.error('Authentication required');
+          toast.error('Please login to access stores');
+          navigate('/login');
           return;
         }
 
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        };
+        // Verify if user is admin
+        const userResponse = await axios.get('http://localhost:8000/api/user', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
 
-        const response = await axios.get('http://localhost:8000/api/stores', { headers });
+        if (userResponse.data.role !== 'Admin') {
+          toast.error('Unauthorized access. Admin privileges required.');
+          return;
+        }
+
+        setIsAdmin(true);
+        setCurrentAdminId(userResponse.data.id);
+
+        // Fetch stores if admin
+        const response = await axios.get('http://localhost:8000/api/stores', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
         
-        // Transform the backend data to match frontend expectations
         const storesData = (response.data || []).map(store => ({
           id: store.id,
           owner_id: store.owner_id,
@@ -167,29 +150,25 @@ const AdminStoreList = () => {
           is_verified: store.is_verified,
           created_at: store.created_at,
           updated_at: store.updated_at,
-          owner: store.owner || null // Assuming backend provides owner info
+          owner: store.owner || null
         }));
 
         setStores(storesData);
 
-        // Fetch owner names for all unique owner IDs
         const uniqueOwnerIds = [...new Set(storesData.map(store => store.owner_id))];
-        uniqueOwnerIds.forEach(ownerId => {
-          if (ownerId) {
-            fetchOwnerName(ownerId, token);
-          }
-        });
+        await Promise.all(uniqueOwnerIds.map(ownerId => fetchOwnerName(ownerId, token)));
 
       } catch (error) {
-        console.error('Error fetching stores:', error);
-        toast.error('Failed to load stores');
+        const errorMessage = handleApiError(error, 'Load stores');
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStores();
-  }, [currentUser]);
+    verifyAdminAndFetchStores();
+  }, [navigate]);
 
   // Delete store function
   const handleDeleteStore = async (storeId) => {
@@ -209,23 +188,14 @@ const AdminStoreList = () => {
 
       await axios.delete(`http://localhost:8000/api/admin/store/${storeId}`, { headers });
       
-      // Remove the deleted store from the local state
       setStores(prevStores => prevStores.filter(store => store.id !== storeId));
       
       toast.success('Store deleted successfully');
       setDeleteModal({ show: false, storeId: null, storeName: '', isDeleting: false });
       
     } catch (error) {
-      console.error('Error deleting store:', error);
-      
-      if (error.response?.status === 403) {
-        toast.error('Access denied. Admin privileges required.');
-      } else if (error.response?.status === 404) {
-        toast.error('Store not found');
-      } else {
-        toast.error('Failed to delete store. Please try again.');
-      }
-      
+      const errorMessage = handleApiError(error, 'Delete store');
+      toast.error(errorMessage);
       setDeleteModal(prev => ({ ...prev, isDeleting: false }));
     }
   };
@@ -247,21 +217,16 @@ const AdminStoreList = () => {
     }
   };
 
-  // Filter stores based on search query and verification status
+  // Filter stores based on search query
   const filteredStores = stores.filter(store => {
     const ownerName = ownerNames[store.owner_id] || '';
-    const matchesSearch = 
+    return (
       store.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       store.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       store.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       store.owner_id?.toString().includes(searchQuery.toLowerCase()) ||
-      ownerName.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'verified' && store.is_verified) ||
-      (filterStatus === 'unverified' && !store.is_verified);
-
-    return matchesSearch && matchesStatus;
+      ownerName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   });
 
   // Format date
@@ -286,28 +251,48 @@ const AdminStoreList = () => {
     return isVerified ? FiCheckCircle : FiXCircle;
   };
 
-  if (userLoading || loading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B] mx-auto mb-4"></div>
+        </div>
       </div>
     );
   }
 
-  if (!currentUser || currentUser.role !== 'Admin') {
+  if (!isAdmin) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-red-50 border border-red-200 p-8 rounded-xl text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiUser className="text-red-600 text-2xl" />
-          </div>
-          <h2 className="text-red-800 text-2xl font-bold mb-2">Access Denied</h2>
-          <p className="text-red-600 mb-6">Admin privileges required to view all stores.</p>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
+          <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
             onClick={() => navigate('/stores')}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Go to Store Directory
+            Return to Store Directory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && stores.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FiXCircle className="text-red-600 text-2xl" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Error Loading Stores</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => verifyAdminAndFetchStores()}
+            className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors flex items-center mx-auto"
+          >
+            <FiRefreshCw className="mr-2" />
+            Try Again
           </button>
         </div>
       </div>
@@ -329,17 +314,6 @@ const AdminStoreList = () => {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 mt-4 md:mt-0">
-          {/* Verification Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
-          >
-            <option value="all">All Stores</option>
-            <option value="verified">Verified Only</option>
-            <option value="unverified">Unverified Only</option>
-          </select>
-
           {/* Search */}
           <div className="relative w-full md:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -353,29 +327,25 @@ const AdminStoreList = () => {
               className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:border-transparent"
             />
           </div>
+          {/* Add Store Button */}
+          <button
+            onClick={() => navigate('/Admin-addStore')}
+            className="inline-flex items-center px-4 py-2 bg-[#00796B] text-white rounded-lg hover:bg-[#005B4F] transition-colors font-medium"
+          >
+            <FiPlus className="mr-2" />
+            Add Store
+          </button>
         </div>
       </div>
 
       {/* Store Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
         {[
           { 
             title: 'Total Stores', 
             value: stores.length, 
             icon: FiShoppingBag, 
             color: 'border-blue-500'
-          },
-          { 
-            title: 'Verified', 
-            value: stores.filter(s => s.is_verified).length, 
-            icon: FiCheckCircle, 
-            color: 'border-green-500'
-          },
-          { 
-            title: 'Unverified', 
-            value: stores.filter(s => !s.is_verified).length, 
-            icon: FiXCircle, 
-            color: 'border-red-500'
           },
           { 
             title: 'Store Owners', 
@@ -407,8 +377,8 @@ const AdminStoreList = () => {
             </div>
             <h2 className="text-xl font-medium text-gray-700 mb-2">No Stores Found</h2>
             <p className="text-gray-500">
-              {searchQuery || filterStatus !== 'all' 
-                ? 'Try adjusting your search or filter criteria.' 
+              {searchQuery
+                ? 'Try adjusting your search criteria.'
                 : 'No medical stores are currently registered.'}
             </p>
           </div>
@@ -425,9 +395,6 @@ const AdminStoreList = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
@@ -513,13 +480,6 @@ const AdminStoreList = () => {
                           )}
                         </div>
                       </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getVerificationBadge(store.is_verified)}`}>
-                          <VerificationIcon className="mr-1" />
-                          {store.is_verified ? 'Verified' : 'Unverified'}
-                        </span>
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <FiCalendar className="mr-2 text-gray-400" />
@@ -558,7 +518,7 @@ const AdminStoreList = () => {
           storeId={deleteModal.storeId}
           storeName={deleteModal.storeName}
           onClose={closeDeleteModal}
-          onConfirm={handleDeleteStore}
+          onConfirm={() => handleDeleteStore(deleteModal.storeId)}
           isDeleting={deleteModal.isDeleting}
         />
       )}

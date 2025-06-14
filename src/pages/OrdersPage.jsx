@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiShoppingBag,
-  FiLoader,
   FiSearch,
   FiShoppingCart,
   FiSend,
@@ -11,12 +10,12 @@ import {
 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import React from 'react';
 import ApproveOrderModal from '../components/ApproveOrderModal';
 import DeleteOrderModal from '../components/DeleteOrderModal';
 import ShipOrderModal from '../components/ShipOrderModal';
 import DeliverOrderModal from '../components/DeliverModal';
 import ProductRatingModal from '../components/ProductRatingModal';
+import CancelOrderModal from '../components/CancelOrderModal';
 import OrdersTable from '../components/OrdersTable';
 import { useOrderData } from '../hooks/UseOrderData';
 
@@ -24,7 +23,7 @@ const OrdersPage = () => {
   const navigate = useNavigate();
   
   // State management
-  const [activeTab, setActiveTab] = useState('placed'); // 'placed' or 'received'
+  const [activeTab, setActiveTab] = useState('placed');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -37,76 +36,30 @@ const OrdersPage = () => {
   const [orderToDeliver, setOrderToDeliver] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [orderToRate, setOrderToRate] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState(null);
 
-  // Use custom hook for order data management
+  // Use custom hook for order data
   const {
     placedOrders,
     receivedOrders,
     loading,
     error,
+    currentUser,
     setPlacedOrders,
     setReceivedOrders,
-    userDetails,
     getBuyerInfo,
     getSellerInfo
   } = useOrderData();
-
-  // Fetch current user data
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          toast.error('Please login to view orders');
-          navigate('/login');
-          return;
-        }
-
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        };
-
-        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
-        const userData = userResponse.data;
-        setCurrentUser(userData);
-
-        // Set default tab based on user role
-        // If user is a supplier, they can only receive orders, not place them
-        if (userData.role === 'Supplier') {
-          setActiveTab('received');
-        }
-        
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        if (error.response?.status === 401) {
-          localStorage.removeItem('authToken');
-          navigate('/login');
-        }
-        toast.error('Failed to load user information');
-      } finally {
-        setUserLoading(false);
-      }
-    };
-
-    fetchCurrentUser();
-  }, [navigate]);
 
   // Check if user can place orders (not a supplier)
   const canPlaceOrders = currentUser && currentUser.role !== 'Supplier';
 
   // Functions to handle orders
   const toggleOrderExpand = (orderId) => {
-    if (expandedOrderId === orderId) {
-      setExpandedOrderId(null);
-    } else {
-      setExpandedOrderId(orderId);
-    }
+    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
   };
 
-  // Add navigation function for order details
   const navigateToOrderDetails = (orderId) => {
     navigate(`/orders/${orderId}`);
   };
@@ -121,19 +74,21 @@ const OrdersPage = () => {
     setShowDeleteModal(true);
   };
 
-  // New function to handle shipping orders
+  const handleCancelOrder = (order) => {
+    setOrderToCancel(order);
+    setShowCancelModal(true);
+  };
+
   const handleShipOrder = (order) => {
     setOrderToShip(order);
     setShowShipModal(true);
   };
 
-  // New function to handle delivering orders
   const handleDeliverOrder = (order) => {
     setOrderToDeliver(order);
     setShowDeliverModal(true);
   };
 
-  // New function to handle submitting ratings
   const handleSubmitRatings = async (ratingsData) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -148,7 +103,6 @@ const OrdersPage = () => {
         'Content-Type': 'application/json'
       };
 
-      // Submit each rating individually
       const ratingPromises = ratingsData.map(rating => 
         axios.post('http://localhost:8000/api/ratings', rating, { headers })
       );
@@ -161,7 +115,7 @@ const OrdersPage = () => {
     } catch (error) {
       console.error('Error submitting ratings:', error);
       toast.error(error.response?.data?.message || 'Failed to submit ratings');
-      throw error; // Re-throw to handle in modal
+      throw error;
     }
   };
   
@@ -188,7 +142,6 @@ const OrdersPage = () => {
       
       toast.success('Order approved successfully');
       
-      // Update the order status locally
       setReceivedOrders(prevOrders => 
         prevOrders.map(o => 
           o.product_order_id === orderToApprove.product_order_id 
@@ -197,7 +150,6 @@ const OrdersPage = () => {
         )
       );
       
-      // Close the modal
       setShowApproveModal(false);
       setOrderToApprove(null);
     } catch (error) {
@@ -228,7 +180,6 @@ const OrdersPage = () => {
       
       toast.success('Order deleted successfully');
       
-      // Remove the order from local state
       if (activeTab === 'placed') {
         setPlacedOrders(prevOrders => 
           prevOrders.filter(o => o.product_order_id !== orderToDelete.product_order_id)
@@ -239,7 +190,6 @@ const OrdersPage = () => {
         );
       }
       
-      // Close the modal
       setShowDeleteModal(false);
       setOrderToDelete(null);
     } catch (error) {
@@ -248,7 +198,55 @@ const OrdersPage = () => {
     }
   };
 
-  // New function to confirm shipping order
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
+      
+      await axios.put(
+        `http://localhost:8000/api/product-orders/${orderToCancel.product_order_id}/cancel`,
+        {},
+        { headers }
+      );
+      
+      toast.success('Order cancelled successfully');
+      
+      if (activeTab === 'placed') {
+        setPlacedOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.product_order_id === orderToCancel.product_order_id 
+              ? { ...o, order_status: 'Canceled' } 
+              : o
+          )
+        );
+      } else {
+        setReceivedOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.product_order_id === orderToCancel.product_order_id 
+              ? { ...o, order_status: 'Canceled' } 
+              : o
+          )
+        );
+      }
+      
+      setShowCancelModal(false);
+      setOrderToCancel(null);
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel order');
+    }
+  };
+
   const confirmShipOrder = async () => {
     if (!orderToShip) return;
     
@@ -272,7 +270,6 @@ const OrdersPage = () => {
       
       toast.success('Order marked as shipped successfully');
       
-      // Update the order status locally
       setReceivedOrders(prevOrders => 
         prevOrders.map(o => 
           o.product_order_id === orderToShip.product_order_id 
@@ -281,7 +278,6 @@ const OrdersPage = () => {
         )
       );
       
-      // Close the modal
       setShowShipModal(false);
       setOrderToShip(null);
     } catch (error) {
@@ -290,7 +286,6 @@ const OrdersPage = () => {
     }
   };
 
-  // Updated function to confirm delivering order and show rating modal
   const confirmDeliverOrder = async () => {
     if (!orderToDeliver) return;
     
@@ -314,7 +309,6 @@ const OrdersPage = () => {
       
       toast.success('Order marked as delivered successfully');
       
-      // Update the order status locally in placed orders (buyer's perspective)
       setPlacedOrders(prevOrders => 
         prevOrders.map(o => 
           o.product_order_id === orderToDeliver.product_order_id 
@@ -323,14 +317,9 @@ const OrdersPage = () => {
         )
       );
       
-      // Close the deliver modal
       setShowDeliverModal(false);
-      
-      // Show rating modal for the delivered order
       setOrderToRate(orderToDeliver);
       setShowRatingModal(true);
-      
-      // Clear the order to deliver
       setOrderToDeliver(null);
     } catch (error) {
       console.error('Error delivering order:', error);
@@ -380,8 +369,8 @@ const OrdersPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Approve Order Modal */}
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Modals */}
       {showApproveModal && orderToApprove && (
         <ApproveOrderModal 
           orderId={orderToApprove.product_order_id}
@@ -393,8 +382,6 @@ const OrdersPage = () => {
           onConfirm={confirmApproveOrder}
         />
       )}
-
-      {/* Delete Order Modal */}
       {showDeleteModal && orderToDelete && (
         <DeleteOrderModal 
           orderId={orderToDelete.product_order_id}
@@ -406,8 +393,17 @@ const OrdersPage = () => {
           onConfirm={confirmDeleteOrder}
         />
       )}
-
-      {/* Ship Order Modal */}
+      {showCancelModal && orderToCancel && (
+        <CancelOrderModal 
+          orderId={orderToCancel.product_order_id}
+          orderNumber={orderToCancel.product_order_id}
+          onClose={() => {
+            setShowCancelModal(false);
+            setOrderToCancel(null);
+          }}
+          onConfirm={confirmCancelOrder}
+        />
+      )}
       {showShipModal && orderToShip && (
         <ShipOrderModal 
           orderId={orderToShip.product_order_id}
@@ -419,8 +415,6 @@ const OrdersPage = () => {
           onConfirm={confirmShipOrder}
         />
       )}
-
-      {/* Deliver Order Modal */}
       {showDeliverModal && orderToDeliver && (
         <DeliverOrderModal 
           orderId={orderToDeliver.product_order_id}
@@ -432,8 +426,6 @@ const OrdersPage = () => {
           onConfirm={confirmDeliverOrder}
         />
       )}
-
-      {/* Product Rating Modal */}
       {showRatingModal && orderToRate && (
         <ProductRatingModal 
           order={orderToRate}
@@ -460,16 +452,15 @@ const OrdersPage = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="Search orders..."
+            placeholder="Search by order ID or product..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00796B] focus:border-transparent outline-none w-full md:w-64"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00796B] focus:border-transparent outline-none w-full md:w-72"
           />
           <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
       </div>
 
-      {/* Tabs for switching between placed and received orders */}
       <div className="mb-6 border-b border-gray-200">
         <div className="flex space-x-8">
           {canPlaceOrders && (
@@ -499,17 +490,15 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      {/* Role-based message for suppliers */}
       {!canPlaceOrders && activeTab === 'placed' && (
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
           <p className="text-blue-800 text-sm">
-            <strong>Note:</strong> As a supplier, you can only view orders you've received from customers. 
+            <strong>Note:</strong> As a supplier, you can only view orders you've received from customers.
             You cannot place orders yourself.
           </p>
         </div>
       )}
 
-      {/* Display active tab content */}
       {canPlaceOrders || activeTab === 'received' ? (
         <OrdersTable 
           orders={activeTab === 'placed' ? placedOrders : receivedOrders}
@@ -520,6 +509,7 @@ const OrdersPage = () => {
           onNavigateToDetails={navigateToOrderDetails}
           onApproveOrder={handleApproveOrder}
           onDeleteOrder={handleDeleteOrder}
+          onCancelOrder={handleCancelOrder}
           onShipOrder={handleShipOrder}
           onDeliverOrder={handleDeliverOrder}
           getBuyerInfo={getBuyerInfo}
