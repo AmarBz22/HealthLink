@@ -1,4 +1,4 @@
-import { FiShield, FiShoppingCart, FiClock, FiAward } from 'react-icons/fi';
+import { Shield, ShoppingCart, Clock } from 'lucide-react';
 
 const HeroSection = () => {
   return (
@@ -17,34 +17,27 @@ const HeroSection = () => {
           </p>
         </div>
         
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
             <div className="flex justify-center mb-2">
-              <FiShield className="text-2xl text-white" aria-hidden="true" />
+              <Shield className="text-2xl text-white" aria-hidden="true" />
             </div>
             <h3 className="font-semibold text-white">Verified Suppliers</h3>
             <p className="text-gray-200 text-sm">Quality assurance</p>
           </div>
           <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
             <div className="flex justify-center mb-2">
-              <FiShoppingCart className="text-2xl text-white" aria-hidden="true" />
+              <ShoppingCart className="text-2xl text-white" aria-hidden="true" />
             </div>
             <h3 className="font-semibold text-white">1000+ Products</h3>
             <p className="text-gray-200 text-sm">All medical needs</p>
           </div>
           <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
             <div className="flex justify-center mb-2">
-              <FiClock className="text-2xl text-white" aria-hidden="true" />
+              <Clock className="text-2xl text-white" aria-hidden="true" />
             </div>
             <h3 className="font-semibold text-white">Fast Delivery</h3>
             <p className="text-gray-200 text-sm">Get supplies quickly</p>
-          </div>
-          <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-            <div className="flex justify-center mb-2">
-              <FiAward className="text-2xl text-white" aria-hidden="true" />
-            </div>
-            <h3 className="font-semibold text-white">Certified Products</h3>
-            <p className="text-gray-200 text-sm">Medical grade quality</p>
           </div>
         </div>
       </div>

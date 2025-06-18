@@ -61,6 +61,7 @@ const OrdersPage = () => {
   };
 
   const navigateToOrderDetails = (orderId) => {
+    console.log('Navigating to:', `/orders/${orderId}`);
     navigate(`/orders/${orderId}`);
   };
   
@@ -104,7 +105,7 @@ const OrdersPage = () => {
       };
 
       const ratingPromises = ratingsData.map(rating => 
-        axios.post('http://localhost:8000/api/ratings', rating, { headers })
+        axios.post('http://192.168.43.101:8000/api/ratings', rating, { headers })
       );
 
       await Promise.all(ratingPromises);
@@ -135,7 +136,7 @@ const OrdersPage = () => {
       };
       
       await axios.put(
-        `http://localhost:8000/api/product-orders/${orderToApprove.product_order_id}/approve`,
+        `http://192.168.43.101:8000/api/product-orders/${orderToApprove.product_order_id}/approve`,
         {},
         { headers }
       );
@@ -174,7 +175,7 @@ const OrdersPage = () => {
       };
       
       await axios.delete(
-        `http://localhost:8000/api/product-orders/${orderToDelete.product_order_id}`,
+        `http://192.168.43.101:8000/api/product-orders/${orderToDelete.product_order_id}`,
         { headers }
       );
       
@@ -214,7 +215,7 @@ const OrdersPage = () => {
       };
       
       await axios.put(
-        `http://localhost:8000/api/product-orders/${orderToCancel.product_order_id}/cancel`,
+        `http://192.168.43.101:8000/api/product-orders/${orderToCancel.product_order_id}/cancel`,
         {},
         { headers }
       );
@@ -263,7 +264,7 @@ const OrdersPage = () => {
       };
       
       await axios.put(
-        `http://localhost:8000/api/product-orders/${orderToShip.product_order_id}/ship`,
+        `http://192.168.43.101:8000/api/product-orders/${orderToShip.product_order_id}/ship`,
         {},
         { headers }
       );
@@ -302,7 +303,7 @@ const OrdersPage = () => {
       };
       
       await axios.put(
-        `http://localhost:8000/api/product-orders/${orderToDeliver.product_order_id}/deliver`,
+        `http://192.168.43.101:8000/api/product-orders/${orderToDeliver.product_order_id}/deliver`,
         {},
         { headers }
       );

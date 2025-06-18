@@ -25,7 +25,7 @@ const UsersManagementPage = () => {
         }
 
         // First verify if user is admin
-        const userResponse = await axios.get('http://localhost:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -41,7 +41,7 @@ const UsersManagementPage = () => {
         setCurrentAdminId(userResponse.data.id);
         
         // Then fetch users if admin
-        const usersResponse = await axios.get('http://localhost:8000/api/admin/users', {
+        const usersResponse = await axios.get('http://192.168.43.101:8000/api/admin/users', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -86,7 +86,7 @@ const UsersManagementPage = () => {
       const token = localStorage.getItem('authToken');
       
       if (currentAction === 'ban') {
-        await axios.post(`http://localhost:8000/api/users/${selectedUser.id}/ban`, {}, {
+        await axios.post(`http://192.168.43.101:8000/api/users/${selectedUser.id}/ban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -97,7 +97,7 @@ const UsersManagementPage = () => {
         ));
         toast.success('User banned successfully');
       } else {
-        await axios.post(`http://localhost:8000/api/users/${selectedUser.id}/unban`, {}, {
+        await axios.post(`http://192.168.43.101:8000/api/users/${selectedUser.id}/unban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -131,7 +131,7 @@ const UsersManagementPage = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
           <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/home')}
             className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
             Return to Home
@@ -295,7 +295,7 @@ const UsersManagementPage = () => {
             </div>
             
             <p className="mb-6 text-gray-600">
-              Are you sure you want to {currentAction} {selectedUser?.first_name} {selectedUser?.last_name} (ID: {selectedUser?.id})?
+              Are you sure you want to {currentAction} {selectedUser?.first_name} {selectedUser?.last_name} ?
               {currentAction === 'ban' && (
                 <span className="block mt-2 text-red-500">
                   This will prevent the user from accessing their account.

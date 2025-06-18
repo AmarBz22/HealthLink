@@ -30,7 +30,7 @@ const LoginPage = () => {
     setIsBannedError(false);
   
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch('http://192.168.43.101:8000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

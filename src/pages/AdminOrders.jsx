@@ -37,7 +37,7 @@ const AdminOrders = () => {
         }
 
         // Verify if user is admin
-        const userResponse = await axios.get('http://localhost:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -53,7 +53,7 @@ const AdminOrders = () => {
         setCurrentAdminId(userResponse.data.id);
 
         // Fetch orders if admin
-        const ordersResponse = await axios.get('http://localhost:8000/api/product-orders', {
+        const ordersResponse = await axios.get('http://192.168.43.101:8000/api/product-orders', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -101,7 +101,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/users/${userId}`, {
+      const response = await axios.get(`http://192.168.43.101:8000/api/users/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -225,10 +225,10 @@ const AdminOrders = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
           <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
-            onClick={() => navigate('/orders')}
+            onClick={() => navigate('/home')}
             className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Return to Your Orders
+            Return home page
           </button>
         </div>
       </div>

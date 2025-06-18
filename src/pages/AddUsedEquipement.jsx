@@ -25,13 +25,15 @@ const AddUsedEquipmentPage = () => {
   const [submissionError, setSubmissionError] = useState('');
 
   const categories = [
-    "Diagnostic Equipment", "Surgical Instruments", "Patient Monitoring",
-    "Laboratory Equipment", "Imaging Equipment", "Rehabilitation Equipment",
-    "Dental Equipment", "Emergency Equipment", "Hospital Furniture",
-    "Other Medical Equipment"
+    "Diagnostic Devices",       // ECG, ultrasound, thermometers
+  "Surgical Instruments",     // Scalpels, forceps, scissors
+  "Monitoring Equipment",     // BP monitors, oximeters, heart rate monitors
+  "Therapeutic Equipment",    // Nebulizers, infusion pumps
+  "Mobility Aids",            // Wheelchairs, walkers, crutches
+  "Durable Medical Equipment"
   ];
 
-  const conditions = ["Excellent", "Very Good", "Good", "Fair", "Needs Repair"];
+  const conditions = ["excellent", "very good", "good", "fair", "poor"];
 
   const validateField = (name, value) => {
     switch (name) {

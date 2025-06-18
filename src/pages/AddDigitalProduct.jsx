@@ -86,7 +86,7 @@ const AddDigitalProduct = () => {
         submitData.append('product_image', formData.product_image);
       }
 
-      const response = await fetch('http://localhost:8000/api/digital-products', {
+      const response = await fetch('http://192.168.43.101:8000/api/digital-products', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',

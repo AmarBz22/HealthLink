@@ -50,6 +50,7 @@ const ProductCard = ({
     count: preloadedRating?.count || totalRatings || 0 
   });
   const [loadingRating, setLoadingRating] = useState(false);
+  const [loadingOwnership, setLoadingOwnership] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
 
@@ -100,7 +101,10 @@ const ProductCard = ({
   // Single optimized data fetch effect
   useEffect(() => {
     if (!product.product_id || !token || dataFetched) {
-      if (!token) setVerifiedOwnership(false);
+      if (!token) {
+        setVerifiedOwnership(false);
+        setLoadingOwnership(false);
+      }
       return;
     }
 
@@ -108,6 +112,7 @@ const ProductCard = ({
       const data = batchedData[product.product_id];
       if (data.ownership !== undefined) {
         setVerifiedOwnership(data.ownership);
+        setLoadingOwnership(false);
       }
       if (data.rating) {
         setProductRating({
@@ -140,10 +145,11 @@ const ProductCard = ({
         const requests = [];
         
         if (needsOwnershipCheck) {
+          setLoadingOwnership(true);
           requests.push({
             type: 'ownership',
             promise: fetch(
-              `http://localhost:8000/api/products/${product.product_id}/check-owner`, 
+              `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
               { headers, signal: controller.signal }
             )
           });
@@ -154,7 +160,7 @@ const ProductCard = ({
           requests.push({
             type: 'rating',
             promise: fetch(
-              `http://localhost:8000/api/products/${product.product_id}/average-rating`, 
+              `http://192.168.43.101:8000/api/products/${product.product_id}/average-rating`, 
               { headers, signal: controller.signal }
             )
           });
@@ -210,6 +216,7 @@ const ProductCard = ({
       } finally {
         if (isMounted) {
           setLoadingRating(false);
+          setLoadingOwnership(false);
           setDataFetched(true);
         }
       }
@@ -284,12 +291,93 @@ const ProductCard = ({
     onEditProduct(product);
   }, [navigate, product, onEditProduct]);
 
-  // Determine ownership status
+  // Determine ownership status and loading states
   const displayAsOwner = verifiedOwnership !== null ? verifiedOwnership : isOwner;
   const isCheckingOwnership = !skipOwnershipCheck && verifiedOwnership === null && token && !dataFetched;
+  const showButtonsLoading = loadingOwnership || isCheckingOwnership;
 
-  // Simplified loading state
-  const showLoadingOverlay = isCheckingOwnership && !dataFetched;
+  // Loading spinner component
+  const LoadingSpinner = ({ size = 16 }) => (
+    <div 
+      className="animate-spin rounded-full border-t-2 border-b-2 border-[#00796B]" 
+      style={{ width: size, height: size }}
+    />
+  );
+
+  // Render action buttons with loading states
+  const renderActionButtons = () => {
+    if (showButtonsLoading) {
+      return (
+        <div className="flex justify-center items-center h-10">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#00796B] mx-auto"></div>
+          </div>
+        </div>
+      );
+    }
+
+    if (displayAsOwner) {
+      return (
+        <div className="flex space-x-2">
+          <button
+            onClick={handleEditClick}
+            className="p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors"
+            title="Edit product"
+          >
+            <FiEdit size={18} />
+          </button>
+          
+          {product.type !== 'used_equipment' && !showInventoryPrice && onPromoteProduct && (
+            <button
+              onClick={() => onPromoteProduct(product)}
+              className={`p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors ${
+                processingInventory === product.product_id ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              disabled={processingInventory === product.product_id}
+              title="Move to inventory"
+            >
+              {processingInventory === product.product_id ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#00796B]"></div>
+              ) : (
+                <FiBox size={18} />
+              )}
+            </button>
+          )}
+          
+          <button
+            onClick={() => onDeleteProduct(product)}
+            className={`p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors ${
+              deletingProductId === product.product_id ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={deletingProductId === product.product_id}
+            title="Delete product"
+          >
+            {deletingProductId === product.product_id ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#00796B]"></div>
+            ) : (
+              <FiTrash2 size={18} />
+            )}
+          </button>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onAddToCart(product)}
+            className={`p-2 rounded-full transition-colors ${
+              isInCart
+                ? 'bg-[#00796B] text-white hover:bg-[#00695C]'
+                : 'text-[#00796B] hover:bg-[#E0F2F1]'
+            }`}
+            title={isInCart ? "Already in cart" : "Add to cart"}
+          >
+            <FiShoppingCart size={18} />
+          </button>
+        </div>
+      );
+    }
+  };
 
   return (
     <div 
@@ -306,15 +394,15 @@ const ProductCard = ({
             <img 
               src={getDisplayImage}
               alt={product.product_name}
-              className={`w-full h-full object-cover transition-opacity ${showLoadingOverlay ? 'opacity-75' : ''}`}
+              className={`w-full h-full object-cover transition-opacity ${showButtonsLoading ? 'opacity-75' : ''}`}
               loading="lazy"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/placeholder-product.png';
               }}
             />
-            {showLoadingOverlay && (
-              <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full p-1">
+            {showButtonsLoading && (
+              <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full p-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#00796B]"></div>
               </div>
             )}
@@ -374,9 +462,15 @@ const ProductCard = ({
         <div className="flex items-start justify-between mb-2">
           <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 flex-1">
             {product.product_name}
-            {displayAsOwner && (
+            {displayAsOwner && !showButtonsLoading && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#00796B] text-white">
                 <FiStar className="mr-1" size={10} /> Your Product
+              </span>
+            )}
+            {showButtonsLoading && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                <div className="animate-spin rounded-full h-2.5 w-2.5 border-t-1 border-b-1 border-[#00796B] mr-1"></div>
+                <span>Checking...</span>
               </span>
             )}
           </h3>
@@ -438,55 +532,7 @@ const ProductCard = ({
             </div>
           </div>
           
-          {displayAsOwner ? (
-            <div className="flex space-x-2">
-              <button
-                onClick={handleEditClick}
-                className="p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors"
-                title="Edit product"
-              >
-                <FiEdit size={18} />
-              </button>
-              
-              {product.type !== 'used_equipment' && !showInventoryPrice && onPromoteProduct && (
-                <button
-                  onClick={() => onPromoteProduct(product)}
-                  className={`p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors ${
-                    processingInventory === product.product_id ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  disabled={processingInventory === product.product_id}
-                  title="Move to inventory"
-                >
-                  <FiBox size={18} />
-                </button>
-              )}
-              
-              <button
-                onClick={() => onDeleteProduct(product)}
-                className={`p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors ${
-                  deletingProductId === product.product_id ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                disabled={deletingProductId === product.product_id}
-                title="Delete product"
-              >
-                <FiTrash2 size={18} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex space-x-2">
-              <button
-                onClick={() => onAddToCart(product)}
-                className={`p-2 rounded-full transition-colors ${
-                  isInCart
-                    ? 'bg-[#00796B] text-white hover:bg-[#00695C]'
-                    : 'text-[#00796B] hover:bg-[#E0F2F1]'
-                }`}
-                title={isInCart ? "Already in cart" : "Add to cart"}
-              >
-                <FiShoppingCart size={18} />
-              </button>
-            </div>
-          )}
+          {renderActionButtons()}
         </div>
         
         <div className="mt-3">

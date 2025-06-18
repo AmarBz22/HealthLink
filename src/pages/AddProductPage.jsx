@@ -26,13 +26,11 @@ const AddProductPage = () => {
 
   const categories = [
     "Medical Equipment",
-    "Medications",
-    "Dental Supplies",
-    "Lab Supplies",
+    "Pharmaceuticals",
+    "Personal Protective Equipment",
+    "Home Healthcare Devices",
     "Health & Wellness",
-    "First Aid & Emergency",
-    "Protective Gear",
-    "Personal Care"
+    "First Aid Supplies"
   ];
   
 
@@ -75,7 +73,7 @@ const AddProductPage = () => {
       };
   
       const response = await axios.post(
-        `http://localhost:8000/api/product`,
+        `http://192.168.43.101:8000/api/product`,
         formData,
         { headers }
       );

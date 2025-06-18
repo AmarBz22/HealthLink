@@ -17,8 +17,8 @@ const EditUsedEquipmentPage = () => {
     price: "",
     inventory_price: "",
     stock: "",
-    category: "Diagnostic Equipment",
-    condition: "Excellent",
+    category: "",
+    condition: "",
     images: [],
   });
   const [previewImages, setPreviewImages] = useState([]);
@@ -28,19 +28,14 @@ const EditUsedEquipmentPage = () => {
   const [errors, setErrors] = useState({});
 
   const categories = [
-    "Diagnostic Equipment",
-    "Surgical Instruments",
-    "Patient Monitoring",
-    "Laboratory Equipment",
-    "Imaging Equipment",
-    "Rehabilitation Equipment",
-    "Dental Equipment",
-    "Emergency Equipment",
-    "Hospital Furniture",
-    "Other Medical Equipment",
+    "Diagnostic Devices",       // ECG, ultrasound, thermometers
+    "Surgical Instruments",     // Scalpels, forceps, scissors
+    "Monitoring Equipment",     // BP monitors, oximeters, heart rate monitors
+    "Therapeutic Equipment",    // Nebulizers, infusion pumps
+    "Mobility Aids",            // Wheelchairs, walkers, crutches
+    "Durable Medical Equipment"
   ];
-
-  const conditions = ["Excellent", "Very Good", "Good", "Fair", "Needs Repair"];
+  const conditions = ["excellent", "very good", "good", "fair", "poor"];
 
   useEffect(() => {
     const fetchEquipmentAndVerifyOwner = async () => {
@@ -57,10 +52,10 @@ const EditUsedEquipmentPage = () => {
 
         // Fetch equipment data and user data in parallel
         const [equipmentResponse, userResponse] = await Promise.all([
-          fetch(`http://localhost:8000/api/product/${id}?with_images=true`, {
+          fetch(`http://192.168.43.101:8000/api/product/${id}?with_images=true`, {
             headers,
           }),
-          fetch("http://localhost:8000/api/user", { headers }).catch(() => null),
+          fetch("http://192.168.43.101:8000/api/user", { headers }).catch(() => null),
         ]);
 
         if (!equipmentResponse.ok) {
@@ -71,7 +66,7 @@ const EditUsedEquipmentPage = () => {
         const equipment = await equipmentResponse.json();
         // Assume store_id is part of equipment data or fetch it separately
         const storeResponse = await fetch(
-          `http://localhost:8000/api/store/${equipment.store_id}`,
+          `http://192.168.43.101:8000/api/store/${equipment.store_id}`,
           { headers }
         );
 
@@ -276,7 +271,7 @@ const EditUsedEquipmentPage = () => {
         formData.append("images_to_keep", JSON.stringify(imagesToKeep));
       }
 
-      const response = await fetch(`http://localhost:8000/api/product/${id}`, {
+      const response = await fetch(`http://192.168.43.101:8000/api/product/${id}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -292,7 +287,7 @@ const EditUsedEquipmentPage = () => {
         throw new Error(errorData.message || "Failed to update equipment");
       }
 
-      navigate(`/used-equipment/${id}`);
+      navigate(`/used-equipment`);
     } catch (error) {
       console.error("Error updating equipment:", error);
       setErrors((prev) => ({

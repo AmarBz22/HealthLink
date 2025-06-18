@@ -14,7 +14,7 @@ const RegistrationRequestsPage = () => {
     const fetchRequests = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        const response = await axios.get('http://localhost:8000/api/admin/registration-requests', {
+        const response = await axios.get('http://192.168.43.101:8000/api/admin/registration-requests', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -40,7 +40,7 @@ const RegistrationRequestsPage = () => {
         ? `approve-request/${id}`
         : `reject-request/${id}`;
 
-      await axios.post(`http://localhost:8000/api/admin/${endpoint}`, {}, {
+      await axios.post(`http://192.168.43.101:8000/api/admin/${endpoint}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

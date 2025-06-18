@@ -8,6 +8,7 @@ import logo from "../assets/logo1.png"
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // Add logout loading state
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,7 +32,7 @@ const Navbar = () => {
           return;
         }
   
-        const response = await axios.get('http://localhost:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             Authorization: `Bearer ${authToken}`,
             Accept: 'application/json',
@@ -67,10 +68,11 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true); // Start loading
     try {
       const authToken = localStorage.getItem("authToken");
       await axios.post(
-        "http://localhost:8000/api/logout",
+        "http://192.168.43.101:8000/api/logout",
         {},
         {
           headers: {
@@ -84,6 +86,8 @@ const Navbar = () => {
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false); // Stop loading
     }
   };
 
@@ -99,9 +103,9 @@ const Navbar = () => {
   if (isLoading) {
     return (
       <div className="w-full flex items-center justify-between px-6 py-3 bg-white shadow-sm min-h-[60px]">
-        {/* Left: Logo */}
+        {/* Left: Logo - Fixed to match normal state */}
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-[#00796B] rounded-sm flex items-center justify-center">
+          <div className="w-20 h-20 rounded-sm flex items-center justify-center">
             <img src={logo} alt="" className="w-full h-full object-contain" />            
           </div>
         </div>
@@ -283,16 +287,13 @@ const Navbar = () => {
 
       {/* Right: Icons + Profile */}
       <div className="flex items-center gap-6">
-        
-        
-
         {/* Profile Picture/Guest Icon with Dropdown */}
         <div className="flex items-center space-x-4" ref={menuRef}>
           {isLoggedIn ? (
             <>
               <div className="relative">
                 <div 
-                  className="w-10 h-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center cursor-pointer"
+                  className="w-10 h-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center cursor-pointer hover:border-[#00796B] transition-colors duration-200"
                   onClick={() => setIsOpen(!isOpen)}
                 >
                   {user?.profile_image ? (
@@ -321,11 +322,14 @@ const Navbar = () => {
               </div>
               
               <div className="flex flex-col">
-                <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 font-medium">
+                <button 
+                  onClick={() => setIsOpen(!isOpen)} 
+                  className="text-gray-700 font-medium hover:text-[#00796B] transition-colors duration-200"
+                >
                   {user?.first_name} {user?.last_name}
                 </button>
                 {user?.role && (
-                  <span className="text-xs text-gray-500">{user.role}</span>
+                  <span className="text-xs text-gray-500 capitalize">{user.role}</span>
                 )}
               </div>
 
@@ -333,30 +337,37 @@ const Navbar = () => {
               {isOpen && (
                 <div className="absolute right-0 top-16 w-40 bg-white shadow-lg rounded-lg py-2 z-50 border border-gray-200">
                   <button 
-                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B] transition-colors duration-200"
                     onClick={goToProfile}
                   >
                     Profile
                   </button>
                   <button
-                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B]"
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 hover:text-[#00796B] flex items-center justify-between transition-colors duration-200"
                     onClick={handleLogout}
+                    disabled={isLoggingOut}
                   >
-                    Logout
+                    <span>Logout</span>
+                    {isLoggingOut && (
+                      <div className="w-4 h-4 border-2 border-t-2 border-[#00796B] border-t-transparent rounded-full animate-spin"></div>
+                    )}
                   </button>
                 </div>
               )}
             </>
           ) : (
-            // Guest User Display
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center">
-                <FiUser className="text-gray-400 text-xl" />
+            // Enhanced Guest User Display
+            <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shadow-sm">
+                <FiUser className="text-gray-500 text-lg" />
               </div>
-              <span className="text-gray-700 font-medium">Guest</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-600">Guest User</span>
+                <span className="text-xs text-gray-400">Not signed in</span>
+              </div>
               <button 
                 onClick={goToLogin}
-                className="ml-2 bg-[#00796B] text-white px-4 py-2 text-sm font-medium rounded hover:bg-[#00695C]"
+                className="ml-2 bg-gradient-to-r from-[#00796B] to-[#00695C] text-white px-4 py-1.5 text-sm font-medium rounded-md hover:from-[#00695C] hover:to-[#004D40] transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
               >
                 Login
               </button>

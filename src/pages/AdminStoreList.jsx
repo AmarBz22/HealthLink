@@ -62,7 +62,7 @@ const AdminStoreList = () => {
 
     try {
       let response;
-      let apiUrl = `http://localhost:8000/api/user/${ownerId}`;
+      let apiUrl = `http://192.168.43.101:8000/api/user/${ownerId}`;
       
       try {
         response = await axios.get(apiUrl, {
@@ -72,7 +72,7 @@ const AdminStoreList = () => {
           }
         });
       } catch (firstError) {
-        apiUrl = `http://localhost:8000/api/users/${ownerId}`;
+        apiUrl = `http://192.168.43.101:8000/api/users/${ownerId}`;
         response = await axios.get(apiUrl, {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -116,7 +116,7 @@ const AdminStoreList = () => {
         }
 
         // Verify if user is admin
-        const userResponse = await axios.get('http://localhost:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -132,7 +132,7 @@ const AdminStoreList = () => {
         setCurrentAdminId(userResponse.data.id);
 
         // Fetch stores if admin
-        const response = await axios.get('http://localhost:8000/api/stores', {
+        const response = await axios.get('http://192.168.43.101:8000/api/stores', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -186,7 +186,7 @@ const AdminStoreList = () => {
         'Accept': 'application/json'
       };
 
-      await axios.delete(`http://localhost:8000/api/admin/store/${storeId}`, { headers });
+      await axios.delete(`http://192.168.43.101:8000/api/admin/store/${storeId}`, { headers });
       
       setStores(prevStores => prevStores.filter(store => store.id !== storeId));
       
@@ -239,13 +239,7 @@ const AdminStoreList = () => {
     });
   };
 
-  // Get verification badge
-  const getVerificationBadge = (isVerified) => {
-    return isVerified 
-      ? 'bg-green-100 text-green-800'
-      : 'bg-red-100 text-red-800';
-  };
-
+ 
   // Get verification icon
   const getVerificationIcon = (isVerified) => {
     return isVerified ? FiCheckCircle : FiXCircle;
@@ -268,10 +262,10 @@ const AdminStoreList = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
           <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
-            onClick={() => navigate('/stores')}
+            onClick={() => navigate('/home')}
             className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Return to Store Directory
+            Return to home page
           </button>
         </div>
       </div>

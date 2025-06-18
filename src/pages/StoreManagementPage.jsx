@@ -38,7 +38,7 @@ const StoreManagementPage = () => {
           return;
         }
 
-        const response = await axios.get('http://localhost:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
@@ -158,7 +158,7 @@ const StoreManagementPage = () => {
         throw new Error('No authentication token found');
       }
   
-      const response = await axios.post('http://localhost:8000/api/store', formData, {
+      const response = await axios.post('http://192.168.43.101:8000/api/store', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${authToken}`,
@@ -196,7 +196,7 @@ const StoreManagementPage = () => {
             retryFormData.append('image', selectedImage);
           }
           
-          const retryResponse = await axios.post('http://localhost:8000/api/store', retryFormData, {
+          const retryResponse = await axios.post('http://192.168.43.101:8000/api/store', retryFormData, {
             headers: {
               'Content-Type': 'multipart/form-data',
               'Authorization': `Bearer ${newAuthToken}`,

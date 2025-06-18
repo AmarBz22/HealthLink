@@ -34,7 +34,7 @@ const AdminAddStore = () => {
           return;
         }
 
-        const response = await axios.get('http://localhost:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
@@ -115,7 +115,7 @@ const AdminAddStore = () => {
         throw new Error('No authentication token found');
       }
   
-      const response = await axios.post('http://localhost:8000/api/store', formData, {
+      const response = await axios.post('http://192.168.43.101:8000/api/store', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${authToken}`,
@@ -134,7 +134,7 @@ const AdminAddStore = () => {
       
       if (error.response?.status === 401) {
         try {
-          const refreshResponse = await axios.post('http://localhost:8000/api/auth/refresh', {}, {
+          const refreshResponse = await axios.post('http://192.168.43.101:8000/api/auth/refresh', {}, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
@@ -143,7 +143,7 @@ const AdminAddStore = () => {
           const newAuthToken = refreshResponse.data.authToken;
           localStorage.setItem('authToken', newAuthToken);
           
-          const retryResponse = await axios.post('http://localhost:8000/api/store', formData, {
+          const retryResponse = await axios.post('http://192.168.43.101:8000/api/store', formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
               'Authorization': `Bearer ${newAuthToken}`,

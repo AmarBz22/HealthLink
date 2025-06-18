@@ -19,7 +19,7 @@ const OrdersTable = ({
   searchQuery,
   expandedOrderId,
   onToggleExpand,
-  onNavigateToDetails, // Keep prop for compatibility, but not used in View Details
+  onNavigateToDetails,
   onApproveOrder,
   onDeleteOrder,
   onCancelOrder,
@@ -36,19 +36,17 @@ const OrdersTable = ({
   // Fetch buyer and seller info for all orders
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const newBuyerInfo = { ...buyerInfoCache };
-      const newSellerInfo = { ...sellerInfoCache };
+      const newBuyerInfo = {};
+      const newSellerInfo = {};
 
       for (const order of orders) {
         // Fetch buyer info
-        if (order.buyer_id && !newBuyerInfo[order.buyer_id]) {
-          const info = getBuyerInfo(order);
-          newBuyerInfo[order.buyer_id] = info;
+        if (order.buyer_id && !buyerInfoCache[order.buyer_id]) {
+          newBuyerInfo[order.buyer_id] = getBuyerInfo(order);
         }
 
         // Fetch seller info
-        if (activeTab === 'received' && currentUser && !newSellerInfo[currentUser.id]) {
-          // For received orders, use currentUser as seller
+        if (activeTab === 'received' && currentUser && !sellerInfoCache[currentUser.id]) {
           newSellerInfo[currentUser.id] = {
             name: `${currentUser.first_name} ${currentUser.last_name || ''}`,
             email: currentUser.email || 'No email',
@@ -56,24 +54,27 @@ const OrdersTable = ({
             wilaya: currentUser.wilaya || 'N/A',
           };
         } else if (order.items && Array.isArray(order.items)) {
-          // For placed orders, use seller info from items
           for (const item of order.items) {
-            if (item.seller_id && !newSellerInfo[item.seller_id]) {
-              const info = getSellerInfo(order, item);
-              newSellerInfo[item.seller_id] = info;
+            if (item.seller_id && !sellerInfoCache[item.seller_id]) {
+              newSellerInfo[item.seller_id] = getSellerInfo(order, item);
             }
           }
         }
       }
 
-      setBuyerInfoCache(newBuyerInfo);
-      setSellerInfoCache(newSellerInfo);
+      // Only update state if new data was added
+      if (Object.keys(newBuyerInfo).length > 0) {
+        setBuyerInfoCache((prev) => ({ ...prev, ...newBuyerInfo }));
+      }
+      if (Object.keys(newSellerInfo).length > 0) {
+        setSellerInfoCache((prev) => ({ ...prev, ...newSellerInfo }));
+      }
     };
 
     if (orders.length > 0) {
       fetchUserInfo();
     }
-  }, [orders, getBuyerInfo, getSellerInfo, activeTab, currentUser, buyerInfoCache, sellerInfoCache]);
+  }, [orders, getBuyerInfo, getSellerInfo, activeTab, currentUser]); // Removed buyerInfoCache, sellerInfoCache
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
@@ -208,14 +209,6 @@ const OrdersTable = ({
             ? "You haven't placed any orders yet."
             : "No orders have been received."}
         </p>
-        {activeTab === 'placed' && (
-          <button
-            onClick={() => (window.location.href = '/')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Start Shopping
-          </button>
-        )}
       </div>
     );
   }
@@ -304,9 +297,10 @@ const OrdersTable = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/orders/${order.product_order_id}`);
+                            console.log('OrdersTable: Triggering navigation for ID:', order.product_order_id);
+                            onNavigateToDetails(order.product_order_id);
                           }}
-                          className="text-[#00796B] hover:[#00695C] transition-colors"
+                          className="text-[#00796B] hover:text-[#00695C] transition-colors"
                         >
                           <FiEye className="inline mr-1" /> View Details
                         </button>

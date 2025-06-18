@@ -26,6 +26,8 @@ const ProductDetailsPage = () => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [ownerCheckLoading, setOwnerCheckLoading] = useState(true);
   
   // Fetch current user data
   useEffect(() => {
@@ -43,7 +45,7 @@ const ProductDetailsPage = () => {
         };
 
         const userResponse = await axios.get(
-          'http://localhost:8000/api/user',
+          'http://192.168.43.101:8000/api/user',
           { headers }
         );
         
@@ -58,6 +60,41 @@ const ProductDetailsPage = () => {
 
     fetchCurrentUser();
   }, []);
+
+  // Check if current user is the owner of the product
+  useEffect(() => {
+    const checkProductOwnership = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token || !productId) {
+          setOwnerCheckLoading(false);
+          return;
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        };
+
+        const ownerResponse = await axios.get(
+          `http://127.0.0.1:8000/api/products/${productId}/check-owner`,
+          { headers }
+        );
+        
+        setIsOwner(ownerResponse.data.isOwner || false);
+      } catch (error) {
+        console.error('Error checking product ownership:', error);
+        // Default to false if check fails
+        setIsOwner(false);
+      } finally {
+        setOwnerCheckLoading(false);
+      }
+    };
+
+    if (productId) {
+      checkProductOwnership();
+    }
+  }, [productId]);
 
   // Fetch product data
   useEffect(() => {
@@ -78,7 +115,7 @@ const ProductDetailsPage = () => {
 
         // Fetch product details
         const productResponse = await axios.get(
-          `http://localhost:8000/api/product/${productId}`, 
+          `http://192.168.43.101:8000/api/product/${productId}`, 
           { headers }
         );
         
@@ -91,7 +128,7 @@ const ProductDetailsPage = () => {
         // Fetch related products from the same category
         const category = productResponse.data.category;
         const relatedResponse = await axios.get(
-          `http://localhost:8000/api/products/${storeId}?category=${encodeURIComponent(category)}`, 
+          `http://192.168.43.101:8000/api/products/${storeId}?category=${encodeURIComponent(category)}`, 
           { headers }
         );
         
@@ -117,11 +154,11 @@ const ProductDetailsPage = () => {
     fetchProductData();
   }, [productId, storeId, navigate]);
 
-  // Check if current user is admin or supplier
-  const isAdminOrSupplier = () => {
-    if (!currentUser || !currentUser.role) return false;
+  // Check if current user is admin, supplier, or owner
+  const shouldHideBuyButtons = () => {
+    if (!currentUser || !currentUser.role) return isOwner;
     const role = currentUser.role.toLowerCase();
-    return role === 'admin' || role === 'supplier';
+    return role === 'admin' || role === 'supplier' || isOwner;
   };
 
   // Add to cart functionality
@@ -206,7 +243,7 @@ const ProductDetailsPage = () => {
     setCurrentImageIndex(index);
   };
 
-  if (loading || userLoading) {
+  if (loading || userLoading || ownerCheckLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
@@ -242,7 +279,7 @@ const ProductDetailsPage = () => {
     if (product.image) {
       return product.image.startsWith('http') 
         ? product.image 
-        : `http://localhost:8000/storage/${product.image}`;
+        : `http://192.168.43.101:8000/storage/${product.image}`;
     }
     
     // No image available
@@ -385,8 +422,8 @@ const ProductDetailsPage = () => {
               </div>
             </div>
             
-            {/* Action Buttons - Only show if not admin/supplier */}
-            {!isAdminOrSupplier() && (
+            {/* Action Buttons - Hide if admin/supplier/owner */}
+            {!shouldHideBuyButtons() && (
               <div className="flex flex-col space-y-3 mt-auto">
                 <button
                   onClick={handleAddToCart}
@@ -415,13 +452,16 @@ const ProductDetailsPage = () => {
               </div>
             )}
 
-            {/* Message for Admin/Supplier users */}
-            {isAdminOrSupplier() && (
+            {/* Message for Admin/Supplier/Owner users */}
+            {shouldHideBuyButtons() && (
               <div className="mt-auto p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center">
                   <FiInfo className="text-blue-600 mr-2" />
                   <p className="text-blue-800 text-sm">
-                    You are viewing this product as {currentUser?.role}. Purchase options are not available for your role.
+                    {isOwner 
+                      ? "You are the owner of this product. Purchase options are not available."
+                      : `You are viewing this product as ${currentUser?.role}. Purchase options are not available for your role.`
+                    }
                   </p>
                 </div>
               </div>

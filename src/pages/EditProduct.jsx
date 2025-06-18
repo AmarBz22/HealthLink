@@ -32,12 +32,12 @@ const EditProductPage = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const categories = [
-    "Medical Devices",
-    "Medications",
-    "Wellness Products",
-    "Personal Care",
-    "First Aid",
-    "Health Supplements"
+    "Medical Equipment",
+    "Pharmaceuticals",
+    "Personal Protective Equipment",
+    "Home Healthcare Devices",
+    "Health & Wellness",
+    "First Aid Supplies"
   ];
 
   useEffect(() => {
@@ -55,12 +55,12 @@ const EditProductPage = () => {
 
         // Fetch product data with images and user data in parallel
         const [productResponse, userResponse] = await Promise.all([
-          axios.get(`http://localhost:8000/api/product/${productId}?with_images=true`, { headers }),
-          axios.get('http://localhost:8000/api/user', { headers }).catch(() => null)
+          axios.get(`http://192.168.43.101:8000/api/product/${productId}?with_images=true`, { headers }),
+          axios.get('http://192.168.43.101:8000/api/user', { headers }).catch(() => null)
         ]);
 
         const product = productResponse.data;
-        const storeResponse = await axios.get(`http://localhost:8000/api/store/${storeId}`, { headers });
+        const storeResponse = await axios.get(`http://192.168.43.101:8000/api/store/${storeId}`, { headers });
 
         // Check if current user is the owner
         if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
@@ -165,7 +165,7 @@ const EditProductPage = () => {
       }
 
       const response = await axios.post(
-        `http://localhost:8000/api/product/${productId}`,
+        `http://192.168.43.101:8000/api/product/${productId}`,
         formData,
         {
           headers: {

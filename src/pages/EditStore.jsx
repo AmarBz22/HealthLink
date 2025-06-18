@@ -23,7 +23,7 @@ const EditStorePage = () => {
     const fetchStoreData = async () => {
       try {
         const authToken = localStorage.getItem('authToken');
-        const response = await axios.get(`http://localhost:8000/api/store/${id}`, {
+        const response = await axios.get(`http://192.168.43.101:8000/api/store/${id}`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
@@ -98,7 +98,7 @@ const EditStorePage = () => {
 
 
       const authToken = localStorage.getItem('authToken');
-      const response = await axios.post(`http://localhost:8000/api/store/${id}`, formData, {
+      const response = await axios.post(`http://192.168.43.101:8000/api/store/${id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${authToken}`,

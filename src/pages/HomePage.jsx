@@ -1,29 +1,37 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FiShoppingCart, 
-  FiPackage, 
-  FiStar, 
-  FiChevronRight,
-  FiTrendingUp,
-  FiSearch,
-  FiShield,
-  FiX,
-  FiFilter
-} from 'react-icons/fi';
+  ShoppingCart, 
+  Package, 
+  Star, 
+  ChevronRight,
+  ChevronLeft,
+  TrendingUp,
+  Search,
+  Shield,
+  X,
+  Filter,
+  Heart,
+  Pill,
+  Stethoscope,
+  TestTube,
+  Activity,
+  Plus,
+  Thermometer
+} from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import AddToCartModal from '../components/AddToCartModal';
 import StoreCard from '../components/StoreCard';
-import SearchComponent from '../components/SearchComponent'; // Import the new search component
+import SearchComponent from '../components/SearchComponent';
 
 const HomePage = () => {
   const navigate = useNavigate();
   
   // State variables
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [topStores, setTopStores] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [trendingProducts, setTrendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -42,7 +50,11 @@ const HomePage = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  
+
+  // Scroll refs for horizontal scrolling
+  const recommendedProductsRef = useRef(null);
+  const allProductsRef = useRef(null);
+
   // Check login status on component mount
   useEffect(() => {
     const checkLoginStatus = () => {
@@ -70,97 +82,72 @@ const HomePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch products from API with better error handling
+        // Fetch all products
         let productsData = [];
         try {
-          const productsResponse = await fetch('http://localhost:8000/api/products');
-          
+          const productsResponse = await fetch('http://192.168.43.101:8000/api/products');
           if (!productsResponse.ok) {
             throw new Error(`Products API returned ${productsResponse.status}: ${productsResponse.statusText}`);
           }
-          
           productsData = await safeJsonParse(productsResponse);
           console.log('Successfully fetched products:', productsData.length);
         } catch (error) {
           console.error('Error fetching products:', error);
-          // Continue with empty array - will fall back to mock data
+        }
+
+        // Fetch recommendations (only if user is logged in)
+        let recommendedData = [];
+        if (isLoggedIn) {
+          try {
+            const token = localStorage.getItem('authToken');
+            const recommendationsResponse = await fetch('http://192.168.43.101:8000/api/recommendations', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            if (recommendationsResponse.ok) {
+              const recommendationsResult = await safeJsonParse(recommendationsResponse);
+              recommendedData = recommendationsResult.recommended_products || [];
+              console.log('Successfully fetched recommendations:', recommendedData.length);
+            }
+          } catch (error) {
+            console.error('Error fetching recommendations:', error);
+          }
         }
         
-        // Fetch stores from API with better error handling
+        // Fetch stores
         let storesData = [];
         try {
-          const storesResponse = await fetch('http://localhost:8000/api/stores');
-          
+          const storesResponse = await fetch('http://192.168.43.101:8000/api/stores');
           if (!storesResponse.ok) {
             throw new Error(`Stores API returned ${storesResponse.status}: ${storesResponse.statusText}`);
           }
-          
           storesData = await safeJsonParse(storesResponse);
           console.log('Successfully fetched stores:', storesData.length);
         } catch (error) {
           console.error('Error fetching stores:', error);
-          // Continue with empty array - will fall back to mock data
         }
         
-        // Mock categories (unchanged)
-        const mockCategories = [
-          {
-            id: 1,
-            name: 'Medications',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 2,
-            name: 'Medical Equipment',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 3,
-            name: 'Lab Supplies',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 4,
-            name: 'Healthcare Devices',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 5,
-            name: 'Personal Protective Equipment',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          },
-          {
-            id: 6,
-            name: 'Supplements',
-            icon: <FiPackage />,
-            image: '/api/placeholder/150/150'
-          }
+        // Updated categories with new list and appropriate icons
+        const updatedCategories = [
+          { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-teal-500 to-teal-600' },
+          { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-teal-500 to-teal-600' },
+          { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-teal-500 to-teal-600' },
+          { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-teal-500 to-teal-600' },
+          { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
+          { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-teal-500 to-teal-600' }
         ];
-
-        // Create trending products only if we have products data
-        let trendingProductsList = [];
-        if (productsData.length > 0) {
-          const shuffledProducts = [...productsData].sort(() => 0.5 - Math.random());
-          trendingProductsList = shuffledProducts.slice(0, 6);
-        }
         
-        // Set state with fetched or empty data
         setFeaturedProducts(productsData);
-        setTrendingProducts(trendingProductsList);
+        setRecommendedProducts(recommendedData);
         setTopStores(storesData);
-        setCategories(mockCategories);
+        setCategories(updatedCategories);
         setLoading(false);
         
-        // If no data was fetched, show a message
         if (productsData.length === 0 && storesData.length === 0) {
           console.warn('No data could be fetched from APIs. Please check your backend server.');
         }
-        
       } catch (error) {
         console.error('Error in fetchData:', error);
         fallbackToMockData();
@@ -168,55 +155,25 @@ const HomePage = () => {
     };
     
     fetchData();
-  }, []);
+  }, [isLoggedIn]);
 
   // Fallback function to use mock data if API fails
   const fallbackToMockData = () => {
     console.log('Falling back to mock data');
-    
-    const mockCategories = [
-      {
-        id: 1,
-        name: 'Medications',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 2,
-        name: 'Medical Equipment',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 3,
-        name: 'Lab Supplies',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 4,
-        name: 'Healthcare Devices',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 5,
-        name: 'Personal Protective Equipment',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      },
-      {
-        id: 6,
-        name: 'Supplements',
-        icon: <FiPackage />,
-        image: '/api/placeholder/150/150'
-      }
+    // Updated fallback categories with new list and appropriate icons
+    const fallbackCategories = [
+      { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-blue-500 to-blue-600' },
+      { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-green-500 to-green-600' },
+      { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-purple-500 to-purple-600' },
+      { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-red-500 to-red-600' },
+      { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
+      { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-orange-500 to-orange-600' }
     ];
     
-    setCategories(mockCategories);
+    setCategories(fallbackCategories);
     setTopStores([]);
     setFeaturedProducts([]);
-    setTrendingProducts([]);
+    setRecommendedProducts([]);
     setLoading(false);
   };
 
@@ -225,8 +182,6 @@ const HomePage = () => {
     console.log('Image search results received:', results);
     setImageSearchResults(results);
     setHasImageSearched(true);
-    
-    // Clear text search when using image search
     if (results && results.length > 0) {
       setSearchQuery('');
     }
@@ -236,27 +191,22 @@ const HomePage = () => {
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...featuredProducts];
     
-    // If we have image search results, use those as the base
     if (hasImageSearched && imageSearchResults.length > 0) {
-      // Filter products based on image search results
       const imageResultIds = imageSearchResults.map(result => result.product_id || result.id);
-      filtered = filtered.filter(product => 
-        imageResultIds.includes(product.product_id || product.id)
-      );
+      filtered = filtered.filter(product => imageResultIds.includes(product.product_id || product.id));
     }
     
-    // Apply text search filter (only if no image search is active)
     if (searchQuery.trim() && !hasImageSearched) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(product => 
         product.product_name?.toLowerCase().includes(query) ||
+        product.name?.toLowerCase().includes(query) ||
         product.description?.toLowerCase().includes(query) ||
         product.category?.toLowerCase().includes(query) ||
         product.brand?.toLowerCase().includes(query)
       );
     }
     
-    // Apply category filter
     if (selectedCategory) {
       const categoryName = categories.find(cat => cat.id === parseInt(selectedCategory))?.name;
       if (categoryName) {
@@ -266,7 +216,6 @@ const HomePage = () => {
       }
     }
     
-    // Apply price range filter
     if (priceRange.min || priceRange.max) {
       filtered = filtered.filter(product => {
         const price = parseFloat(product.price || 0);
@@ -276,7 +225,6 @@ const HomePage = () => {
       });
     }
     
-    // Apply sorting
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price':
@@ -287,7 +235,7 @@ const HomePage = () => {
           return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         case 'product_name':
         default:
-          return (a.product_name || '').localeCompare(b.product_name || '');
+          return (a.product_name || a.name || '').localeCompare(b.product_name || b.name || '');
       }
     });
     
@@ -307,33 +255,36 @@ const HomePage = () => {
   // Check if any filters are active
   const hasActiveFilters = searchQuery || selectedCategory || priceRange.min || priceRange.max || sortBy !== 'product_name' || hasImageSearched;
 
-  // Event handlers
-  const handleStoreClick = (store) => {
-    navigate(`/stores/${store.id}`);
+  // Scroll handler functions
+  const scrollLeft = (ref) => {
+    if (ref.current) {
+      ref.current.scrollBy({ left: -300, behavior: 'smooth' });
+    }
   };
 
-  const handleCategoryClick = (categoryId) => {
-    navigate(`/category/${categoryId}`);
+  const scrollRight = (ref) => {
+    if (ref.current) {
+      ref.current.scrollBy({ left: 300, behavior: 'smooth' });
+    }
   };
-  
+
+  // Event handlers
   const handleAddToCart = (product) => {
     if (!isLoggedIn) {
       navigate('/login', { state: { redirectAfter: '/home' } });
       return;
     }
-    
     setSelectedProduct(product);
     setCartModalOpen(true);
   };
   
   const handleAddToBasket = (product) => {
     console.log('Adding to basket:', product);
-    // Add to local cart state instead of API
     setCartItems(prev => {
-      const existingItem = prev.find(item => item.product_id === product.product_id);
+      const existingItem = prev.find(item => (item.product_id || item.id) === (product.product_id || product.id));
       if (existingItem) {
         return prev.map(item => 
-          item.product_id === product.product_id 
+          (item.product_id || item.id) === (product.product_id || product.id)
             ? { ...item, quantity: (item.quantity || 1) + 1 }
             : item
         );
@@ -347,7 +298,7 @@ const HomePage = () => {
   };
   
   const handleViewDetails = (product) => {
-    navigate(`/products/${product.product_id}`);
+    navigate(`/products/${product.product_id || product.id}`);
   };
 
   const handleStoreDeleteSuccess = (deletedStoreId) => {
@@ -364,7 +315,6 @@ const HomePage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      
       {/* Platform Introduction */}
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -380,7 +330,7 @@ const HomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-gradient-to-br from-[#F0F9FF] to-[#E0F7FA] rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-16 h-16 bg-gradient-to-r from-[#00796B] to-[#26A69A] rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
-                <FiShield className="text-2xl text-white" />
+                <Shield className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Verified Suppliers</h3>
               <p className="text-gray-600">
@@ -390,7 +340,7 @@ const HomePage = () => {
             
             <div className="bg-gradient-to-br from-[#F0F9FF] to-[#E0F7FA] rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-16 h-16 bg-gradient-to-r from-[#00796B] to-[#26A69A] rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
-                <FiShoppingCart className="text-2xl text-white" />
+                <ShoppingCart className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Streamlined Ordering</h3>
               <p className="text-gray-600">
@@ -400,7 +350,7 @@ const HomePage = () => {
             
             <div className="bg-gradient-to-br from-[#F0F9FF] to-[#E0F7FA] rounded-xl p-6 text-center shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-16 h-16 bg-gradient-to-r from-[#00796B] to-[#26A69A] rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
-                <FiTrendingUp className="text-2xl text-white" />
+                <TrendingUp className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Competitive Pricing</h3>
               <p className="text-gray-600">
@@ -435,15 +385,12 @@ const HomePage = () => {
 
       {/* Search Results or Default Content */}
       {searchQuery || hasActiveFilters || hasImageSearched ? (
-        // Show filtered results
         <div className="py-12 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-gray-900">
                 {hasImageSearched && !searchQuery ? 'Image Search Results' : 'Search Results'}
               </h2>
-              
-              {/* Results summary with enhanced messaging */}
               <div className="text-sm text-gray-600">
                 {hasImageSearched && imageSearchResults.length > 0 && (
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 mr-2">
@@ -458,14 +405,14 @@ const HomePage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredAndSortedProducts.map((product) => (
                   <ProductCard
-                    key={product.product_id}
+                    key={product.product_id || product.id}
                     product={product}
-                    storageUrl="http://localhost:8000/storage"
+                    storageUrl="http://192.168.43.101:8000/storage"
                     onAddToCart={() => handleAddToCart(product)}
                     onViewDetails={() => handleViewDetails(product)}
                     className="h-full"
                     imageHeight="h-48"
-                    isInCart={cartItems.some(item => item.product_id === product.product_id)}
+                    isInCart={cartItems.some(item => (item.product_id || item.id) === (product.product_id || product.id))}
                   />
                 ))}
               </div>
@@ -476,7 +423,7 @@ const HomePage = () => {
                     {hasImageSearched ? (
                       <span className="text-3xl">📷</span>
                     ) : (
-                      <FiSearch className="text-3xl text-gray-500" />
+                      <Search className="w-10 h-10 text-gray-500" />
                     )}
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -500,73 +447,127 @@ const HomePage = () => {
           </div>
         </div>
       ) : (
-        // Show default homepage content
         <>
-          
-          {/* Featured Categories */}
+          {/* Featured Categories - Updated with new categories */}
           <div className="py-12 bg-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Shop by Category
+                  Our Categories
                 </h2>
-                <button
-                  onClick={() => navigate('/categories')}
-                  className="flex items-center text-[#00796B] hover:text-[#00695C] font-medium transition-colors group"
-                >
-                  View All <FiChevronRight className="ml-1 group-hover:translate-x-1 transition-transform" />
-                </button>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    onClick={() => handleCategoryClick(category.id)}
-                    className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300 border border-gray-100"
-                  >
-                    <div className="h-24 w-24 mx-auto mb-4 flex items-center justify-center rounded-full bg-gradient-to-br from-[#F0F9FF] to-[#E0F7FA] shadow-md">
-                      <img
-                        src={category.image}
-                        alt={category.name}
-                        className="h-16 w-16 object-contain"
-                      />
+                {categories.map((category) => {
+                  const IconComponent = category.icon;
+                  return (
+                    <div
+                      key={category.id}
+                      className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 text-center border border-gray-100 transition-all duration-300 hover:shadow-md cursor-pointer"
+                      onClick={() => setSelectedCategory(category.id.toString())}
+                    >
+                      <div className={`h-20 w-20 mx-auto mb-4 flex items-center justify-center rounded-full bg-gradient-to-br ${category.color} shadow-lg`}>
+                        <IconComponent className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="font-medium text-gray-900 text-sm leading-tight">
+                        {category.name}
+                      </h3>
                     </div>
-                    <h3 className="font-medium text-gray-900 text-sm">{category.name}</h3>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
           
-          {/* Featured Products */}
-          <div className="py-12 bg-gray-50">
+          {/* Recommended Products - Updated with consistent styling */}
+          {isLoggedIn && recommendedProducts.length > 0 && (
+            <div className="py-12 bg-gray-50 relative">
+              <button
+                onClick={() => scrollLeft(recommendedProductsRef)}
+                className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => scrollRight(recommendedProductsRef)}
+                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Recommended for You
+                  </h2>
+                </div>
+                
+                <div
+                  ref={recommendedProductsRef}
+                  className="flex overflow-x-auto space-x-6 pb-4 snap-x snap-mandatory scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {recommendedProducts.map((product) => (
+                    <div key={product.product_id} className="flex-none w-64 snap-start">
+                      <div className="relative">
+                        <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white text-xs px-2 py-1 rounded-full shadow-lg">
+                          ✨ Recommended
+                        </div>
+                        <ProductCard
+                          product={product}
+                          storageUrl="http://192.168.43.101:8000/storage"
+                          onAddToCart={() => handleAddToCart(product)}
+                          onViewDetails={() => handleViewDetails(product)}
+                          className="h-full"
+                          imageHeight="h-48"
+                          isInCart={cartItems.some(item => (item.product_id || item.id) === product.product_id)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* All Products */}
+          <div className="py-12 bg-gray-50 relative">
+            <button
+              onClick={() => scrollLeft(allProductsRef)}
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={() => scrollRight(allProductsRef)}
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Featured Products
+                  All Products
                 </h2>
-                <button
-                  onClick={() => navigate('/products')}
-                  className="flex items-center text-[#00796B] hover:underline"
-                >
-                  View All <FiChevronRight className="ml-1" />
-                </button>
               </div>
               
               {featuredProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {featuredProducts.slice(0, 8).map((product) => (
-                    <ProductCard
-                      key={product.product_id}
-                      product={product}
-                      storageUrl="http://localhost:8000/storage"
-                      onAddToCart={() => handleAddToCart(product)}
-                      onViewDetails={() => handleViewDetails(product)}
-                      className="h-full"
-                      imageHeight="h-48"
-                      isInCart={cartItems.some(item => item.product_id === product.product_id)}
-                    />
+                <div
+                  ref={allProductsRef}
+                  className="flex overflow-x-auto space-x-6 pb-4 snap-x snap-mandatory scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {featuredProducts.map((product) => (
+                    <div key={product.product_id} className="flex-none w-64 snap-start">
+                      <ProductCard
+                        product={product}
+                        storageUrl="http://192.168.43.101:8000/storage"
+                        onAddToCart={() => handleAddToCart(product)}
+                        onViewDetails={() => handleViewDetails(product)}
+                        className="h-full"
+                        imageHeight="h-48"
+                        isInCart={cartItems.some(item => item.product_id === product.product_id)}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -585,10 +586,10 @@ const HomePage = () => {
                   Trusted Suppliers
                 </h2>
                 <button
-                  onClick={() => navigate('/stores')}
+                  onClick={() => navigate('/store')}
                   className="flex items-center text-[#00796B] hover:underline"
                 >
-                  View All <FiChevronRight className="ml-1" />
+                  View All <ChevronRight className="ml-1 w-4 h-4" />
                 </button>
               </div>
               
@@ -607,45 +608,6 @@ const HomePage = () => {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500">No stores available at the moment. Please check your backend server.</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-           {/* Trending Products */}
-           <div className="py-12 bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Trending Now
-                </h2>
-                <button
-                  onClick={() => navigate('/trending')}
-                  className="flex items-center text-[#00796B] hover:underline"
-                >
-                  View All <FiChevronRight className="ml-1" />
-                </button>
-              </div>
-              
-              {trendingProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-                  {trendingProducts.slice(0, 6).map((product) => (
-                    <ProductCard
-                      key={product.product_id}
-                      product={product}
-                      storageUrl="http://localhost:8000/storage"
-                      onAddToCart={() => handleAddToCart(product)}
-                      onViewDetails={() => handleViewDetails(product)}
-                      className="h-full"
-                      imageHeight="h-48"
-                      isInCart={cartItems.some(item => item.product_id === product.product_id)}
-                      showTrending={true}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No trending products available at the moment.</p>
                 </div>
               )}
             </div>

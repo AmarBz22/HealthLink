@@ -17,7 +17,7 @@ const InventoryProductsPage = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState('');
   const [deletingProductId, setDeletingProductId] = useState(null);
-  const storageUrl = 'http://localhost:8000/storage';
+  const storageUrl = 'http://192.168.43.101:8000/storage';
   
   // Authorization states
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -60,7 +60,7 @@ const InventoryProductsPage = () => {
         };
 
         // First verify user role and authorization
-        const userResponse = await axios.get('http://localhost:8000/api/user', { headers });
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
         const currentUserRole = userResponse.data.role;
         setUserRole(currentUserRole);
 
@@ -74,7 +74,7 @@ const InventoryProductsPage = () => {
         setIsAuthorized(true);
 
         // If authorized, fetch inventory products
-        const productsResponse = await axios.get('http://localhost:8000/api/products', { headers });
+        const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
         
         // Filter products to only show those with type="inventory"
         const filteredProducts = Array.isArray(productsResponse.data) 
@@ -89,7 +89,7 @@ const InventoryProductsPage = () => {
           filteredProducts.map(async (product) => {
             try {
               const ownershipResponse = await axios.get(
-                `http://localhost:8000/api/products/${product.product_id}/check-owner`, 
+                `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
                 { headers }
               );
               ownershipChecks[product.product_id] = ownershipResponse.data.isOwner || false;
@@ -133,7 +133,7 @@ const InventoryProductsPage = () => {
         };
   
         await axios.delete(
-          `http://localhost:8000/api/product/${product.product_id}`, 
+          `http://192.168.43.101:8000/api/product/${product.product_id}`, 
           { headers }
         );
   

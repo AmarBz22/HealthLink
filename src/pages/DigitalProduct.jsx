@@ -23,7 +23,7 @@ const DigitalProductsPage = () => {
         }
 
         // Fetch user data from API
-        const userResponse = await axios.get('http://localhost:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const user = userResponse.data;
@@ -38,7 +38,7 @@ const DigitalProductsPage = () => {
         }
 
         // Fetch digital products from API
-        const productsResponse = await axios.get('http://localhost:8000/api/digital-products', {
+        const productsResponse = await axios.get('http://192.168.43.101:8000/api/digital-products', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -67,7 +67,7 @@ const DigitalProductsPage = () => {
     try {
       const token = localStorage.getItem('authToken');
       
-      await axios.delete(`http://localhost:8000/api/digital-products/${product.id}`, {
+      await axios.delete(`http://192.168.43.101:8000/api/digital-products/${product.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -97,7 +97,7 @@ const DigitalProductsPage = () => {
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:8000/storage/${imagePath}`;
+    return `http://192.168.43.101:8000/storage/${imagePath}`;
   };
 
   if (loading) {

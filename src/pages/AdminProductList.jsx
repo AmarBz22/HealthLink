@@ -32,7 +32,7 @@ const AdminProductList = () => {
     isDeleting: false
   });
 
-  const storageUrl = 'http://localhost:8000/storage';
+  const storageUrl = 'http://192.168.43.101:8000/storage';
   const categories = [
     "Medical Equipment", "Medications", "Dental Supplies", "Lab Supplies",
     "Health & Wellness", "First Aid & Emergency", "Protective Gear", "Personal Care"
@@ -93,7 +93,7 @@ const AdminProductList = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      await axios.delete(`http://localhost:8000/api/admin/product/${productId}`, {
+      await axios.delete(`http://192.168.43.101:8000/api/admin/product/${productId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -128,7 +128,7 @@ const AdminProductList = () => {
     if (!userId || ownerNames[userId]) return;
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/users/${userId}`, {
+      const response = await axios.get(`http://192.168.43.101:8000/api/users/${userId}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Accept': 'application/json'
@@ -173,7 +173,7 @@ const AdminProductList = () => {
     if (!storeId || storeNames[storeId]) return;
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/store/${storeId}`, {
+      const response = await axios.get(`http://192.168.43.101:8000/api/store/${storeId}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Accept': 'application/json'
@@ -190,7 +190,7 @@ const AdminProductList = () => {
       // Also fetch store owner information if available
       if (storeData?.owner_id && !storeOwners[storeId]) {
         try {
-          const ownerResponse = await axios.get(`http://localhost:8000/api/users/${storeData.owner_id}`, {
+          const ownerResponse = await axios.get(`http://192.168.43.101:8000/api/users/${storeData.owner_id}`, {
             headers: { 
               Authorization: `Bearer ${token}`,
               'Accept': 'application/json'
@@ -238,7 +238,7 @@ const AdminProductList = () => {
         }
 
         // Verify if user is admin
-        const userResponse = await axios.get('http://localhost:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -254,7 +254,7 @@ const AdminProductList = () => {
         setCurrentAdminId(userResponse.data.id);
 
         // Fetch products if admin
-        const response = await axios.get('http://localhost:8000/api/products', {
+        const response = await axios.get('http://192.168.43.101:8000/api/products', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -366,10 +366,10 @@ const AdminProductList = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Unauthorized Access</h2>
           <p className="text-gray-600 mb-4">You don't have permission to view this page.</p>
           <button
-            onClick={() => navigate('/products')}
+            onClick={() => navigate('/home')}
             className="px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
           >
-            Return to Products
+            Return to home page
           </button>
         </div>
       </div>

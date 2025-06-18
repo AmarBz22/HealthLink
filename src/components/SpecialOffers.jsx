@@ -1,24 +1,24 @@
-import { FiChevronRight, FiPercent, FiClock, FiTrendingUp } from 'react-icons/fi';
+import { FiChevronRight, FiUsers, FiShoppingCart, FiShield } from 'react-icons/fi';
 
 const SpecialOffersSection = ({ onViewAllClick }) => {
   const offers = [
     {
       id: 1,
-      icon: FiPercent,
-      title: "Bulk Discounts",
-      description: "Save up to 25% on bulk orders"
+      icon: FiUsers,
+      title: "Free for Healthcare Professionals",
+      description: "Doctors and dentists get full access forever"
     },
     {
       id: 2,
-      icon: FiClock,
-      title: "Flash Sales",
-      description: "Limited time offers every day"
+      icon: FiShoppingCart,
+      title: "3 Months Free Trial",
+      description: "Suppliers start with free trial period"
     },
     {
       id: 3,
-      icon: FiTrendingUp,
-      title: "New Arrivals",
-      description: "Latest products just in"
+      icon: FiShield,
+      title: "Digital Product Partnerships",
+      description: "20% commission on software collaborations"
     }
   ];
 
@@ -27,14 +27,9 @@ const SpecialOffersSection = ({ onViewAllClick }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900">
-            Special Offers
+            Platform Benefits
           </h2>
-          <button
-            onClick={onViewAllClick}
-            className="flex items-center text-[#00796B] hover:text-[#00695C] font-semibold"
-          >
-            View All <FiChevronRight className="ml-1 h-5 w-5" aria-hidden="true" />
-          </button>
+          
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
