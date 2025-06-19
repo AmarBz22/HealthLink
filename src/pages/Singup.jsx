@@ -3,15 +3,27 @@ import { Mail, Lock, Eye, EyeOff, AlertCircle, Shield, Activity, Users, User, Ph
 import { useNavigate } from 'react-router-dom';
 import logo from "../assets/logo1.png"
 
-
 const SignupPage = () => {
+  // Array of all 58 Algerian wilayas
+  const algerianWilayas = [
+    "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar",
+    "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou",
+    "Algiers", "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba",
+    "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran",
+    "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf",
+    "Tissemsilt", "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla",
+    "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane", "Timimoun", "Bordj Badji Mokhtar",
+    "Ouled Djellal", "Béni Abbès", "In Salah", "In Guezzam", "Touggourt", "Djanet",
+    "El M'Ghair", "El Meniaa"
+  ];
+
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     phone_number: '',
     wilaya: '',
-    role: 'Dentist', // Updated default role to match backend validation
+    role: 'Dentist',
     password: '',
     password_confirmation: '',
   });
@@ -23,13 +35,124 @@ const SignupPage = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
 
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone) => {
+    const phoneRegex = /^(0[5-7])\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{2}$|^(0\d{3})\s?\d{2}\s?\d{2}\s?\d{2}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  const validateName = (name) => {
+    const nameRegex = /^[a-zA-Z\s-]+$/;
+    return nameRegex.test(name) && name.trim().length >= 2;
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
+  const formatName = (name) => {
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const formatPhone = (phone) => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length <= 10 && digits.startsWith('0')) {
+      if (digits.length <= 2) return digits;
+      if (digits.length <= 4) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+      if (digits.length <= 6) return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4)}`;
+      if (digits.length <= 8) return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6)}`;
+      return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
+    }
+    return phone;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let formattedValue = value;
+    let fieldErrors = { ...errors };
+
+    if (fieldErrors.server) {
+      delete fieldErrors.server;
+    }
+
+    switch (name) {
+      case 'first_name':
+      case 'last_name':
+        formattedValue = value.replace(/[^a-zA-Z\s-]/g, '');
+        formattedValue = formatName(formattedValue);
+        if (!validateName(formattedValue) && formattedValue.length > 0) {
+          fieldErrors[name] = 'Name must contain only letters and be at least 2 characters long';
+        } else {
+          delete fieldErrors[name];
+        }
+        break;
+
+      case 'email':
+        formattedValue = value.toLowerCase().trim();
+        if (formattedValue && !validateEmail(formattedValue)) {
+          fieldErrors[name] = 'Please enter a valid email address';
+        } else {
+          delete fieldErrors[name];
+        }
+        break;
+
+      case 'phone_number':
+        formattedValue = formatPhone(value);
+        if (formattedValue && !validatePhone(formattedValue)) {
+          fieldErrors[name] = 'Please enter a valid Algerian phone number (e.g., 05 12 34 56 78)';
+        } else {
+          delete fieldErrors[name];
+        }
+        break;
+
+      case 'wilaya':
+        if (formattedValue && !algerianWilayas.includes(formattedValue)) {
+          fieldErrors[name] = 'Please select a valid wilaya';
+        } else {
+          delete fieldErrors[name];
+        }
+        break;
+
+      case 'password':
+        if (formattedValue && !validatePassword(formattedValue)) {
+          fieldErrors[name] = 'Password must be at least 6 characters long';
+        } else {
+          delete fieldErrors[name];
+        }
+        if (formData.password_confirmation && formattedValue !== formData.password_confirmation) {
+          fieldErrors.password_confirmation = 'Passwords do not match';
+        } else if (formData.password_confirmation && formattedValue === formData.password_confirmation) {
+          delete fieldErrors.password_confirmation;
+        }
+        break;
+
+      case 'password_confirmation':
+        if (formattedValue && formattedValue !== formData.password) {
+          fieldErrors[name] = 'Passwords do not match';
+        } else {
+          delete fieldErrors[name];
+        }
+        break;
+
+      default:
+        break;
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: formattedValue
     }));
+
+    setErrors(fieldErrors);
   };
 
   const togglePasswordVisibility = () => {
@@ -40,8 +163,67 @@ const SignupPage = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'First name is required';
+    } else if (!validateName(formData.first_name)) {
+      newErrors.first_name = 'First name must contain only letters and be at least 2 characters long';
+    }
+
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Last name is required';
+    } else if (!validateName(formData.last_name)) {
+      newErrors.last_name = 'Last name must contain only letters and be at least 2 characters long';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!formData.phone_number.trim()) {
+      newErrors.phone_number = 'Phone number is required';
+    } else if (!validatePhone(formData.phone_number)) {
+      newErrors.phone_number = 'Please enter a valid Algerian phone number';
+    }
+
+    if (!formData.wilaya.trim()) {
+      newErrors.wilaya = 'Wilaya is required';
+    } else if (!algerianWilayas.includes(formData.wilaya)) {
+      newErrors.wilaya = 'Please select a valid wilaya';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (!validatePassword(formData.password)) {
+      newErrors.password = 'Password must be at least 6 characters long';
+    }
+
+    if (!formData.password_confirmation) {
+      newErrors.password_confirmation = 'Password confirmation is required';
+    } else if (formData.password !== formData.password_confirmation) {
+      newErrors.password_confirmation = 'Passwords do not match';
+    }
+
+    if (!acceptedTerms) {
+      newErrors.terms = 'You must accept the terms and conditions';
+    }
+
+    return newErrors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setIsLoading(true);
     setErrors({});
 
@@ -107,7 +289,6 @@ const SignupPage = () => {
             </p>
           </div>
 
-          {/* Features */}
           <div className="grid gap-4">
             <div className="flex items-center space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
               <div className="flex-shrink-0 w-12 h-12 bg-[#00796B]/10 rounded-lg flex items-center justify-center">
@@ -144,12 +325,11 @@ const SignupPage = () => {
         {/* Right Section - Signup Form */}
         <div className="w-full max-w-md mx-auto">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-            {/* Header */}
             <div className="px-8 pt-8 pb-6 bg-gradient-to-r from-[#00796B]/5 to-[#004D40]/5">
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-4">
                   <img 
-                    src= {logo} 
+                    src={logo} 
                     alt="HealthLink Logo" 
                     className="h-20 w-20 object-contain"
                     onError={(e) => {
@@ -164,9 +344,7 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Form */}
             <div className="px-8 pb-8">
-              {/* Error Message */}
               {errors.server && (
                 <div className="mb-6 p-4 rounded-xl flex items-start bg-red-50 border border-red-200 text-red-700">
                   <AlertCircle className="flex-shrink-0 h-5 w-5 mt-0.5 mr-3" />
@@ -177,8 +355,7 @@ const SignupPage = () => {
                 </div>
               )}
 
-              <div onSubmit={handleSubmit} className="space-y-6">
-                {/* Name Fields */}
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -227,7 +404,6 @@ const SignupPage = () => {
                   </div>
                 </div>
 
-                {/* Email Field */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Email Address
@@ -251,7 +427,6 @@ const SignupPage = () => {
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
 
-                {/* Phone and Wilaya */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -269,7 +444,7 @@ const SignupPage = () => {
                         className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
                           errors.phone_number ? 'border-red-300' : 'border-gray-200'
                         }`}
-                        placeholder="05 00 00 00 00"
+                        placeholder="05 12 34 56 78"
                         required
                       />
                     </div>
@@ -284,23 +459,25 @@ const SignupPage = () => {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <MapPin className="text-gray-400 h-5 w-5" />
                       </div>
-                      <input
-                        type="text"
+                      <select
                         name="wilaya"
                         value={formData.wilaya}
                         onChange={handleChange}
-                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors placeholder-gray-400 ${
+                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors appearance-none bg-white ${
                           errors.wilaya ? 'border-red-300' : 'border-gray-200'
                         }`}
-                        placeholder="Algiers"
                         required
-                      />
+                      >
+                        <option value="">Select a wilaya</option>
+                        {algerianWilayas.map((wilaya) => (
+                          <option key={wilaya} value={wilaya}>{wilaya}</option>
+                        ))}
+                      </select>
                     </div>
                     {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
                   </div>
                 </div>
 
-                {/* Role Field */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Professional Role
@@ -313,7 +490,8 @@ const SignupPage = () => {
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors appearance-none bg-white"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-=mysqli
+                      200 rounded-xl focus:ring-2 focus:ring-[#00796B] focus:border-[#00796B] transition-colors appearance-none bg-white"
                       required
                     >
                       <option value="Dentist">Dentist</option>
@@ -325,7 +503,6 @@ const SignupPage = () => {
                   </div>
                 </div>
 
-                {/* Password Fields */}
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -396,7 +573,6 @@ const SignupPage = () => {
                   </div>
                 </div>
 
-                {/* Terms and Conditions */}
                 <div className="flex items-start space-x-3">
                   <div className="flex items-center h-5 mt-1">
                     <input
@@ -420,14 +596,13 @@ const SignupPage = () => {
                         Privacy Policy
                       </a>
                     </label>
+                    {errors.terms && <p className="text-red-500 text-xs mt-1">{errors.terms}</p>}
                   </div>
                 </div>
 
-                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={isLoading || !acceptedTerms}
-                  onClick={handleSubmit}
                   className={`w-full py-3 px-4 bg-[#00796B] text-white rounded-xl hover:bg-[#00695C] focus:outline-none focus:ring-2 focus:ring-[#00796B] focus:ring-offset-2 transition-all duration-200 font-semibold ${
                     isLoading || !acceptedTerms ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-0.5'
                   }`}
@@ -442,9 +617,8 @@ const SignupPage = () => {
                     </span>
                   ) : 'Register'}
                 </button>
-              </div>
+              </form>
 
-              {/* Login Link */}
               <div className="mt-6 text-center">
                 <p className="text-gray-600">
                   Already have an account?{' '}
@@ -459,7 +633,6 @@ const SignupPage = () => {
             </div>
           </div>
 
-          {/* Mobile Features - Only visible on small screens */}
           <div className="lg:hidden mt-8 space-y-4">
             <div className="flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-lg">
               <Shield className="w-5 h-5 text-[#00796B] flex-shrink-0" />

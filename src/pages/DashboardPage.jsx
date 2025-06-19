@@ -133,7 +133,7 @@ const DashboardPage = () => {
           const [allStoresData, allProductsData, supplierOrdersData] = await Promise.all([
             fetchWithErrorHandling('http://192.168.43.101:8000/api/stores', headers),
             fetchWithErrorHandling('http://192.168.43.101:8000/api/products', headers),
-            fetchWithErrorHandling(`http://127.0.0.1:8000/api/product-orders/seller/${userResponse.id}`, headers)
+            fetchWithErrorHandling(`http://192.168.43.101:8000/api/product-orders/seller/${userResponse.id}`, headers)
           ]);
           
           const supplierStores = Array.isArray(allStoresData) ? 

@@ -31,8 +31,16 @@ const HomePage = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [topStores, setTopStores] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories] = useState([
+    { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-teal-500 to-teal-600' },
+    { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-teal-500 to-teal-600' },
+    { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-teal-500 to-teal-600' },
+    { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-teal-500 to-teal-600' },
+    { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
+    { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-teal-500 to-teal-600' }
+  ]);
   const [loading, setLoading] = useState(true);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -98,6 +106,7 @@ const HomePage = () => {
         // Fetch recommendations (only if user is logged in)
         let recommendedData = [];
         if (isLoggedIn) {
+          setRecommendationsLoading(true);
           try {
             const token = localStorage.getItem('authToken');
             const recommendationsResponse = await fetch('http://192.168.43.101:8000/api/recommendations', {
@@ -113,6 +122,8 @@ const HomePage = () => {
             }
           } catch (error) {
             console.error('Error fetching recommendations:', error);
+          } finally {
+            setRecommendationsLoading(false);
           }
         }
         
@@ -129,20 +140,9 @@ const HomePage = () => {
           console.error('Error fetching stores:', error);
         }
         
-        // Updated categories with new list and appropriate icons
-        const updatedCategories = [
-          { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-teal-500 to-teal-600' },
-          { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-teal-500 to-teal-600' },
-          { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-teal-500 to-teal-600' },
-          { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-teal-500 to-teal-600' },
-          { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
-          { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-teal-500 to-teal-600' }
-        ];
-        
         setFeaturedProducts(productsData);
         setRecommendedProducts(recommendedData);
         setTopStores(storesData);
-        setCategories(updatedCategories);
         setLoading(false);
         
         if (productsData.length === 0 && storesData.length === 0) {
@@ -150,32 +150,15 @@ const HomePage = () => {
         }
       } catch (error) {
         console.error('Error in fetchData:', error);
-        fallbackToMockData();
+        setFeaturedProducts([]);
+        setRecommendedProducts([]);
+        setTopStores([]);
+        setLoading(false);
       }
     };
     
     fetchData();
   }, [isLoggedIn]);
-
-  // Fallback function to use mock data if API fails
-  const fallbackToMockData = () => {
-    console.log('Falling back to mock data');
-    // Updated fallback categories with new list and appropriate icons
-    const fallbackCategories = [
-      { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-blue-500 to-blue-600' },
-      { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-green-500 to-green-600' },
-      { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-purple-500 to-purple-600' },
-      { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-red-500 to-red-600' },
-      { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
-      { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-orange-500 to-orange-600' }
-    ];
-    
-    setCategories(fallbackCategories);
-    setTopStores([]);
-    setFeaturedProducts([]);
-    setRecommendedProducts([]);
-    setLoading(false);
-  };
 
   // Handle image search results
   const handleImageSearchResults = (results) => {
@@ -448,7 +431,7 @@ const HomePage = () => {
         </div>
       ) : (
         <>
-          {/* Featured Categories - Updated with new categories */}
+          {/* Featured Categories */}
           <div className="py-12 bg-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center mb-8">
@@ -479,53 +462,88 @@ const HomePage = () => {
             </div>
           </div>
           
-          {/* Recommended Products - Updated with consistent styling */}
-          {isLoggedIn && recommendedProducts.length > 0 && (
+          {/* Recommended Products */}
+          {isLoggedIn && (
             <div className="py-12 bg-gray-50 relative">
-              <button
-                onClick={() => scrollLeft(recommendedProductsRef)}
-                className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <button
-                onClick={() => scrollRight(recommendedProductsRef)}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Recommended for You
-                  </h2>
+              {recommendationsLoading ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Recommended for You
+                    </h2>
+                  </div>
+                  <div className="flex justify-center items-center h-48">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
+                  </div>
                 </div>
-                
-                <div
-                  ref={recommendedProductsRef}
-                  className="flex overflow-x-auto space-x-6 pb-4 snap-x snap-mandatory scrollbar-hide"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                  {recommendedProducts.map((product) => (
-                    <div key={product.product_id} className="flex-none w-64 snap-start">
-                      <div className="relative">
-                        <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white text-xs px-2 py-1 rounded-full shadow-lg">
-                          ✨ Recommended
-                        </div>
-                        <ProductCard
-                          product={product}
-                          storageUrl="http://192.168.43.101:8000/storage"
-                          onAddToCart={() => handleAddToCart(product)}
-                          onViewDetails={() => handleViewDetails(product)}
-                          className="h-full"
-                          imageHeight="h-48"
-                          isInCart={cartItems.some(item => (item.product_id || item.id) === product.product_id)}
-                        />
-                      </div>
+              ) : recommendedProducts.length > 0 ? (
+                <>
+                  <button
+                    onClick={() => scrollLeft(recommendedProductsRef)}
+                    className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={() => scrollRight(recommendedProductsRef)}
+                    className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors shadow-lg z-10"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        Recommended for You
+                      </h2>
                     </div>
-                  ))}
+                    <div
+                      ref={recommendedProductsRef}
+                      className="flex overflow-x-auto space-x-6 pb-4 snap-x snap-mandatory scrollbar-hide"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      {recommendedProducts.map((product) => (
+                        <div key={product.product_id} className="flex-none w-64 snap-start">
+                          <div className="relative">
+                            <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white text-xs px-2 py-1 rounded-full shadow-lg">
+                              ✨ Recommended
+                            </div>
+                            <ProductCard
+                              product={product}
+                              storageUrl="http://192.168.43.101:8000/storage"
+                              onAddToCart={() => handleAddToCart(product)}
+                              onViewDetails={() => handleViewDetails(product)}
+                              className="h-full"
+                              imageHeight="h-48"
+                              isInCart={cartItems.some(item => (item.product_id || item.id) === product.product_id)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Recommended for You
+                    </h2>
+                  </div>
+                  <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100">
+                    <div className="max-w-md mx-auto">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Heart className="w-10 h-10 text-gray-500" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                        No Recommendations Yet
+                      </h3>
+                      <p className="text-gray-500 mb-6 leading-relaxed">
+                        Build your recommendations by browsing or purchasing products
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           

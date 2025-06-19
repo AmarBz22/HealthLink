@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiUpload, FiSave, FiMapPin, FiPhone, FiArrowLeft } from "react-icons/fi";
+import { FiSave, FiMapPin, FiPhone, FiArrowLeft } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -39,8 +39,6 @@ const EditStorePage = () => {
           owner_id: storeData?.owner_id || ""
         });
 
-       
-
       } catch (error) {
         console.error("Error fetching store data:", error);
         toast.error(error.response?.data?.message || "Failed to load store data");
@@ -57,8 +55,6 @@ const EditStorePage = () => {
     const { name, value } = e.target;
     setStoreInfo(prev => ({ ...prev, [name]: value }));
   };
-
- 
 
   const validateForm = () => {
     const requiredFields = ['store_name', 'phone', 'address'];
@@ -94,8 +90,6 @@ const EditStorePage = () => {
       formData.append('phone', storeInfo.phone);
       formData.append('address', storeInfo.address);
       formData.append('owner_id', storeInfo.owner_id);
-  
-
 
       const authToken = localStorage.getItem('authToken');
       const response = await axios.post(`http://192.168.43.101:8000/api/store/${id}`, formData, {

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBasket } from '../context/BasketContext';
-import { FiArrowLeft, FiShoppingCart, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiShoppingCart, FiAlertCircle, FiCheckCircle, FiTag } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { basket, subtotal, clearBasket } = useBasket();
+  const { basket, subtotal, clearBasket, getEffectivePrice } = useBasket();
   const [loading, setLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderError, setOrderError] = useState(null);
@@ -95,10 +95,14 @@ const CheckoutPage = () => {
         buyer_id: userData.id,
         delivery_address: formData.delivery_address,
         estimated_delivery: formData.estimated_delivery || null,
-        items: basket.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        }))
+        items: basket.map(item => {
+          const effectivePrice = item.effective_price || getEffectivePrice(item);
+          return {
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: effectivePrice // Include the effective price used
+          };
+        })
       };
 
       console.log('Submitting order:', orderData);
@@ -283,17 +287,74 @@ const CheckoutPage = () => {
             <div className="mb-6">
               <h3 className="font-medium text-gray-700 mb-3">Items ({basket.length})</h3>
               <ul className="divide-y divide-gray-100">
-                {basket.map(item => (
-                  <li key={item.product_id} className="py-3 flex justify-between">
-                    <div>
-                      <p className="text-gray-800">{item.product_name}</p>
-                      <p className="text-gray-500 text-sm">Qty: {item.quantity}</p>
-                    </div>
-                    <span className="font-medium text-gray-800">
-                      DZD {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </li>
-                ))}
+                {basket.map(item => {
+                  const effectivePrice = item.effective_price || getEffectivePrice(item);
+                  const hasInventoryPrice = item.inventory_price && item.inventory_price > 0;
+                  const isDiscounted = hasInventoryPrice && item.inventory_price < item.price;
+                  const itemTotal = effectivePrice * item.quantity;
+                  
+                  return (
+                    <li key={item.product_id} className="py-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <p className="text-gray-800 font-medium">{item.product_name}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <p className="text-gray-500 text-sm">Qty: {item.quantity}</p>
+                            
+                            {/* Product type badge */}
+                            {item.type && (
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                item.type === 'inventory' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : item.type === 'used_equipment'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {item.type === 'inventory' ? 'Inventory' : 
+                                 item.type === 'used_equipment' ? 'Used' : 'New'}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Price display */}
+                          <div className="mt-1">
+                            {hasInventoryPrice ? (
+                              <div className="flex items-center space-x-2">
+                                <span className="text-[#00796B] font-medium text-sm">
+                                  DZD {item.inventory_price} each
+                                </span>
+                                {isDiscounted && (
+                                  <>
+                                    <span className="text-xs text-gray-400 line-through">
+                                      DZD {item.price}
+                                    </span>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                      <FiTag className="mr-1" size={8} />
+                                      Special
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-600 text-sm">DZD {item.price} each</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <span className="font-medium text-gray-800">
+                            DZD {itemTotal.toFixed(2)}
+                          </span>
+                          {isDiscounted && (
+                            <div className="text-xs text-gray-500 line-through">
+                              DZD {(item.price * item.quantity).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 
@@ -306,7 +367,23 @@ const CheckoutPage = () => {
                 <span className="text-gray-600">Shipping</span>
                 <span className="font-medium">DZD 0.00</span>
               </div>
-              <div className="flex justify-between font-bold text-lg mt-4">
+              
+              {/* Show savings if any items have discounts */}
+              {basket.some(item => item.inventory_price && item.inventory_price < item.price) && (
+                <div className="flex justify-between mb-2 text-green-600">
+                  <span>You Save</span>
+                  <span className="font-medium">
+                    DZD {basket.reduce((savings, item) => {
+                      if (item.inventory_price && item.inventory_price < item.price) {
+                        return savings + ((item.price - item.inventory_price) * item.quantity);
+                      }
+                      return savings;
+                    }, 0).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t border-gray-200">
                 <span>Total</span>
                 <span>DZD {subtotal.toFixed(2)}</span>
               </div>

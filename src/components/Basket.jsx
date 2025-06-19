@@ -1,4 +1,4 @@
-import { FiShoppingCart, FiX, FiMinus, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiShoppingCart, FiX, FiMinus, FiPlus, FiTrash2, FiTag } from 'react-icons/fi';
 import { useBasket } from '../context/BasketContext';
 
 const Basket = () => {
@@ -11,7 +11,8 @@ const Basket = () => {
     subtotal,
     totalItems,
     clearBasket,
-    proceedToCheckout
+    proceedToCheckout,
+    getEffectivePrice
   } = useBasket();
 
   if (!isBasketOpen) return null;
@@ -53,45 +54,93 @@ const Basket = () => {
               </div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {basket.map(item => (
-                  <li key={item.product_id} className="py-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 mr-4">
-                        <h3 className="font-medium text-gray-900">{item.product_name}</h3>
-                        <p className="text-gray-600 text-sm">DZD {item.price} each</p>
-                      </div>
-                      
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center border border-gray-200 rounded-md">
-                          <button 
-                            onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                            className="p-2 text-gray-500 hover:text-[#00796B] hover:bg-gray-50 disabled:opacity-30"
-                            disabled={item.quantity <= 1}
-                          >
-                            <FiMinus size={14} />
-                          </button>
+                {basket.map(item => {
+                  const effectivePrice = item.effective_price || getEffectivePrice(item);
+                  const hasInventoryPrice = item.inventory_price && item.inventory_price > 0;
+                  const isDiscounted = hasInventoryPrice && item.inventory_price < item.price;
+                  
+                  return (
+                    <li key={item.product_id} className="py-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 mr-4">
+                          <h3 className="font-medium text-gray-900 mb-1">{item.product_name}</h3>
                           
-                          <span className="w-8 text-center text-gray-700">{item.quantity}</span>
-                          
-                          <button 
-                            onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                            className="p-2 text-gray-500 hover:text-[#00796B] hover:bg-gray-50"
-                          >
-                            <FiPlus size={14} />
-                          </button>
+                          {/* Price display with inventory pricing logic */}
+                          <div className="space-y-1">
+                            {hasInventoryPrice ? (
+                              <div className="flex items-center space-x-2">
+                                <p className="text-[#00796B] font-medium">
+                                  DZD {item.inventory_price} each
+                                </p>
+                                {isDiscounted && (
+                                  <>
+                                    <p className="text-xs text-gray-400 line-through">
+                                      DZD {item.price}
+                                    </p>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                      <FiTag className="mr-1" size={8} />
+                                      Special
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-gray-600 text-sm">DZD {item.price} each</p>
+                            )}
+                            
+                            {/* Product type indicator */}
+                            {item.type && (
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
+                                item.type === 'inventory' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : item.type === 'used_equipment'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {item.type === 'inventory' ? 'Inventory' : 
+                                 item.type === 'used_equipment' ? 'Used' : 'New'}
+                              </span>
+                            )}
+                            
+                            {/* Item total */}
+                            <p className="text-sm font-medium text-gray-900">
+                              Subtotal: DZD {(effectivePrice * item.quantity).toFixed(2)}
+                            </p>
+                          </div>
                         </div>
                         
-                        <button 
-                          onClick={() => removeFromBasket(item.product_id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-50 rounded-full transition-colors"
-                          aria-label="Remove item"
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center border border-gray-200 rounded-md">
+                            <button 
+                              onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                              className="p-2 text-gray-500 hover:text-[#00796B] hover:bg-gray-50 disabled:opacity-30"
+                              disabled={item.quantity <= 1}
+                            >
+                              <FiMinus size={14} />
+                            </button>
+                            
+                            <span className="w-8 text-center text-gray-700">{item.quantity}</span>
+                            
+                            <button 
+                              onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                              className="p-2 text-gray-500 hover:text-[#00796B] hover:bg-gray-50"
+                            >
+                              <FiPlus size={14} />
+                            </button>
+                          </div>
+                          
+                          <button 
+                            onClick={() => removeFromBasket(item.product_id)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-50 rounded-full transition-colors"
+                            aria-label="Remove item"
+                          >
+                            <FiTrash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

@@ -1,19 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FiPackage, 
-  FiChevronRight, 
-  FiChevronLeft,
-  FiSearch, 
-  FiShield, 
-  FiShoppingCart, 
-  FiTrendingUp,
-  FiCheck,
-  FiStar,
-  FiUsers,
-  FiCreditCard,
-  FiGift
-} from 'react-icons/fi';
+  ShoppingCart, 
+  Shield, 
+  ChevronRight,
+  ChevronLeft,
+  TrendingUp,
+  Search,
+  Check,
+  Star,
+  Users,
+  Gift,
+  Pill,
+  Stethoscope,
+  Thermometer,
+  Activity,
+  Plus
+} from 'lucide-react';
 import axios from 'axios';
 
 // Import components
@@ -37,7 +40,14 @@ const LandingPage = () => {
   // State variables
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [topStores, setTopStores] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories] = useState([
+    { id: 1, name: 'Medical Equipment', icon: Stethoscope, color: 'from-teal-500 to-teal-600' },
+    { id: 2, name: 'Pharmaceuticals', icon: Pill, color: 'from-teal-500 to-teal-600' },
+    { id: 3, name: 'Personal Protective Equipment', icon: Shield, color: 'from-teal-500 to-teal-600' },
+    { id: 4, name: 'Home Healthcare Devices', icon: Thermometer, color: 'from-teal-500 to-teal-600' },
+    { id: 5, name: 'Health & Wellness', icon: Activity, color: 'from-teal-500 to-teal-600' },
+    { id: 6, name: 'First Aid Supplies', icon: Plus, color: 'from-teal-500 to-teal-600' }
+  ]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -109,15 +119,6 @@ const LandingPage = () => {
         const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
         const storesResponse = await axios.get('http://192.168.43.101:8000/api/stores', { headers });
 
-        const mockCategories = [
-          { id: 1, name: 'Medications', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-          { id: 2, name: 'Medical Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-          { id: 3, name: 'Lab Supplies', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-          { id: 4, name: 'Healthcare Devices', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-          { id: 5, name: 'Personal Protective Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-          { id: 6, name: 'Supplements', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-        ];
-
         // Process stores with owner information
         const processedStores = await Promise.all(
           (storesResponse.data || []).map(async (store) => {
@@ -149,11 +150,12 @@ const LandingPage = () => {
 
         setFeaturedProducts(productsResponse.data || []);
         setTopStores(processedStores);
-        setCategories(mockCategories);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
-        fallbackToMockData();
+        setFeaturedProducts([]);
+        setTopStores([]);
+        setLoading(false);
       }
     };
 
@@ -161,23 +163,6 @@ const LandingPage = () => {
       fetchData();
     }
   }, [currentUserId, isLoggedIn]);
-
-  // Fallback to mock data
-  const fallbackToMockData = () => {
-    const mockCategories = [
-      { id: 1, name: 'Medications', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-      { id: 2, name: 'Medical Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-      { id: 3, name: 'Lab Supplies', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-      { id: 4, name: 'Healthcare Devices', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-      { id: 5, name: 'Personal Protective Equipment', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-      { id: 6, name: 'Supplements', icon: <FiPackage className="text-[#00796B] h-6 w-6" />, image: '/api/placeholder/150/150' },
-    ];
-
-    setCategories(mockCategories);
-    setTopStores([]);
-    setFeaturedProducts([]);
-    setLoading(false);
-  };
 
   // Handle image search results
   const handleImageSearchResults = (results) => {
@@ -294,10 +279,6 @@ const LandingPage = () => {
     }
   };
 
-  const handleCategoryClick = (categoryId) => {
-    navigate(`/category/${categoryId}`);
-  };
-
   const closeModal = () => {
     setShowModal(false);
     setSelectedItem(null);
@@ -412,7 +393,7 @@ const LandingPage = () => {
                     {hasImageSearched ? (
                       <span className="text-3xl">📷</span>
                     ) : (
-                      <FiSearch className="text-3xl text-gray-500" />
+                      <Search className="text-3xl text-gray-500" />
                     )}
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -437,24 +418,43 @@ const LandingPage = () => {
         </div>
       ) : (
         <>
-          <FeaturedCategoriesSection
-            categories={categories}
-            onViewAllClick={() => navigate('/categories')}
-            onCategoryClick={handleCategoryClick}
-          />
-          <SpecialOffersSection  />
+          {/* Featured Categories Section */}
+          <div className="py-12 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <SectionHeader title="Our Categories" />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {categories.map((category) => {
+                  const IconComponent = category.icon;
+                  return (
+                    <div
+                      key={category.id}
+                      className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 text-center border border-gray-100 transition-all duration-300 hover:shadow-md"
+                    >
+                      <div className={`h-20 w-20 mx-auto mb-4 flex items-center justify-center rounded-full bg-gradient-to-br ${category.color} shadow-lg`}>
+                        <IconComponent className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="font-medium text-gray-900 text-sm leading-tight">
+                        {category.name}
+                      </h3>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <SpecialOffersSection />
           <div className="py-12 bg-white/60 backdrop-blur-sm border border-gray-200/50 relative">
             <button
               onClick={scrollLeft}
               className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
             >
-              <FiChevronLeft className="text-xl" />
+              <ChevronLeft className="text-xl" />
             </button>
             <button
               onClick={scrollRight}
               className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
             >
-              <FiChevronRight className="text-xl" />
+              <ChevronRight className="text-xl" />
             </button>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <SectionHeader title="Popular Products" />
@@ -524,7 +524,7 @@ const LandingPage = () => {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiShoppingCart className="text-2xl text-white" />
+                  <ShoppingCart className="text-2xl text-white" />
                 </div>
                 <h3 className="text-2xl font-bold mb-2">Suppliers</h3>
                 <p className="text-teal-100">For medical product suppliers</p>
@@ -534,7 +534,7 @@ const LandingPage = () => {
                 <div className="flex items-center justify-center mb-4">
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-2">
-                      <FiGift className="text-2xl text-green-400 mr-2" />
+                      <Gift className="text-2xl text-green-400 mr-2" />
                       <span className="text-lg font-semibold text-green-400">3 Months FREE</span>
                     </div>
                     <div className="text-3xl font-bold">2,000 DZD</div>
@@ -545,23 +545,23 @@ const LandingPage = () => {
 
               <div className="space-y-4 mb-8">
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>List unlimited products</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Store management dashboard</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Order management system</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Analytics and reporting</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Customer support</span>
                 </div>
               </div>
@@ -578,14 +578,14 @@ const LandingPage = () => {
             <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-8 border-2 border-white/30 hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-2 relative">
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                 <div className="bg-gradient-to-r from-green-400 to-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center">
-                  <FiStar className="mr-1" />
+                  <Star className="mr-1" />
                   Most Popular
                 </div>
               </div>
               
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiUsers className="text-2xl text-white" />
+                  <Users className="text-2xl text-white" />
                 </div>
                 <h3 className="text-2xl font-bold mb-2">Healthcare Professionals</h3>
                 <p className="text-teal-100">For doctors and dentists</p>
@@ -600,27 +600,27 @@ const LandingPage = () => {
 
               <div className="space-y-4 mb-8">
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Browse all products</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Place orders directly</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Image search functionality</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Advanced filtering options</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Priority customer support</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Special discounts & offers</span>
                 </div>
               </div>
@@ -637,7 +637,7 @@ const LandingPage = () => {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiShield className="text-2xl text-white" />
+                  <Shield className="text-2xl text-white" />
                 </div>
                 <h3 className="text-2xl font-bold mb-2">Digital Products</h3>
                 <p className="text-teal-100">Software & digital solutions</p>
@@ -652,27 +652,27 @@ const LandingPage = () => {
 
               <div className="space-y-4 mb-8">
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Product showcase on platform</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Direct client connections</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Cash-based transactions</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>20% commission per sale</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>Marketing & promotion support</span>
                 </div>
                 <div className="flex items-center">
-                  <FiCheck className="text-green-400 mr-3 flex-shrink-0" />
+                  <Check className="text-green-400 mr-3 flex-shrink-0" />
                   <span>No online payment processing</span>
                 </div>
               </div>
@@ -692,15 +692,15 @@ const LandingPage = () => {
               <h3 className="text-xl font-semibold mb-4">Why Choose Our Platform?</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                 <div className="flex items-center justify-center">
-                  <FiShield className="text-green-400 mr-2" />
+                  <Shield className="text-green-400 mr-2" />
                   <span>Secure platform and data protection</span>
                 </div>
                 <div className="flex items-center justify-center">
-                  <FiTrendingUp className="text-blue-400 mr-2" />
+                  <TrendingUp className="text-blue-400 mr-2" />
                   <span>Growing network of healthcare professionals</span>
                 </div>
                 <div className="flex items-center justify-center">
-                  <FiUsers className="text-purple-400 mr-2" />
+                  <Users className="text-purple-400 mr-2" />
                   <span>Direct connections and collaborations</span>
                 </div>
               </div>

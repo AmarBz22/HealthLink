@@ -54,6 +54,11 @@ const ProductCard = ({
   const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
 
+  // Determine if inventory price should be shown based on product type
+  const shouldShowInventoryPrice = useMemo(() => {
+    return showInventoryPrice || product.type === 'inventory';
+  }, [showInventoryPrice, product.type]);
+
   // Get auth token with fallback
   const token = useMemo(() => {
     return authToken || userInfo?.token || localStorage.getItem('authToken');
@@ -327,7 +332,7 @@ const ProductCard = ({
             <FiEdit size={18} />
           </button>
           
-          {product.type !== 'used_equipment' && !showInventoryPrice && onPromoteProduct && (
+          {product.type !== 'used_equipment' && !shouldShowInventoryPrice && onPromoteProduct && (
             <button
               onClick={() => onPromoteProduct(product)}
               className={`p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors ${
@@ -445,7 +450,7 @@ const ProductCard = ({
             <FiShoppingCart size={48} />
           </div>
         )}
-        {showInventoryPrice && product.stock !== undefined && (
+        {shouldShowInventoryPrice && product.stock !== undefined && (
           <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${
             product.stock > 10 
               ? 'bg-green-100 text-green-800' 
@@ -515,20 +520,21 @@ const ProductCard = ({
           </div>
         )}
         
-        {showInventoryPrice && product.category && (
+        {/* Display category for all product types */}
+        {product.category && (
           <p className="text-sm text-gray-500 mb-2">Category: {product.category}</p>
         )}
         
         <div className="flex justify-between items-center">
           <div>
-            {showInventoryPrice && product.inventory_price && (
+            {shouldShowInventoryPrice && product.inventory_price && (
               <div className="font-bold text-[#00796B]">
                 Cost: DZD {parseFloat(product.inventory_price).toFixed(2)}
               </div>
             )}
-            <div className={showInventoryPrice ? "text-sm text-gray-500" : "font-bold text-[#00796B]"}>
+            <div className={shouldShowInventoryPrice ? "text-sm text-gray-500" : "font-bold text-[#00796B]"}>
               DZD {parseFloat(product.price).toFixed(2)}
-              {showInventoryPrice && " (Sale Price)"}
+              {shouldShowInventoryPrice && " (Sale Price)"}
             </div>
           </div>
           
@@ -543,12 +549,6 @@ const ProductCard = ({
             <FiEye size={16} /> View Details
           </button>
         </div>
-        
-        {showInventoryPrice && (
-          <div className="mt-3 text-sm text-gray-500">
-            Added: {new Date(product.created_at || product.added_date).toLocaleDateString()}
-          </div>
-        )}
       </div>
     </div>
   );

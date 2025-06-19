@@ -1,6 +1,6 @@
 import { FiChevronRight } from 'react-icons/fi';
 
-const FeaturedCategoriesSection = ({ categories, onViewAllClick, onCategoryClick }) => {
+const FeaturedCategoriesSection = ({ categories,   }) => {
   return (
     <div className="py-12 bg-white/60 backdrop-blur-sm border border-gray-200/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -9,7 +9,7 @@ const FeaturedCategoriesSection = ({ categories, onViewAllClick, onCategoryClick
             Featured Categories
           </h2>
           <button
-            onClick={onViewAllClick}
+            
             className="flex items-center text-[#00796B] hover:text-[#00695C] font-semibold"
           >
             View All <FiChevronRight className="ml-1 h-5 w-5" aria-hidden="true" />
@@ -20,7 +20,6 @@ const FeaturedCategoriesSection = ({ categories, onViewAllClick, onCategoryClick
           {categories.map((category) => (
             <button
               key={category.id}
-              onClick={() => onCategoryClick(category.id)}
               className="bg-white rounded-xl p-4 text-center cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border border-gray-200/50"
               aria-label={`View ${category.name} category`}
             >
