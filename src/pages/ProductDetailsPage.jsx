@@ -45,7 +45,7 @@ const ProductDetailsPage = () => {
         };
 
         const userResponse = await axios.get(
-          'http://192.168.43.101:8000/api/user',
+          'http://192.168.43.102:8000/api/user',
           { headers }
         );
         
@@ -115,7 +115,7 @@ const ProductDetailsPage = () => {
 
         // Fetch product details
         const productResponse = await axios.get(
-          `http://192.168.43.101:8000/api/product/${productId}`, 
+          `http://192.168.43.102:8000/api/product/${productId}`, 
           { headers }
         );
         
@@ -128,7 +128,7 @@ const ProductDetailsPage = () => {
         // Fetch related products from the same category
         const category = productResponse.data.category;
         const relatedResponse = await axios.get(
-          `http://192.168.43.101:8000/api/products/${storeId}?category=${encodeURIComponent(category)}`, 
+          `http://192.168.43.102:8000/api/products/${storeId}?category=${encodeURIComponent(category)}`, 
           { headers }
         );
         
@@ -279,7 +279,7 @@ const ProductDetailsPage = () => {
     if (product.image) {
       return product.image.startsWith('http') 
         ? product.image 
-        : `http://192.168.43.101:8000/storage/${product.image}`;
+        : `http://192.168.43.102:8000/storage/${product.image}`;
     }
     
     // No image available
@@ -288,17 +288,7 @@ const ProductDetailsPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center mb-6 text-sm">
-        <button 
-          onClick={() => navigate(`/store/${storeId}`)}
-          className="text-[#00796B] hover:underline flex items-center"
-        >
-          <FiArrowLeft className="mr-1" /> Back to Store
-        </button>
-        <span className="mx-2 text-gray-400">/</span>
-        <span className="text-gray-600 line-clamp-1">{product.product_name}</span>
-      </div>
+      
       
       {/* Product Details Section */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-12">

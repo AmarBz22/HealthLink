@@ -102,14 +102,14 @@ const StoreListingPage = () => {
       };
   
       // First get current user data
-      const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
+      const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
       const currentUser = userResponse.data;
       const userId = currentUser.id;
       setCurrentUserId(userId);
       setCurrentUserRole(currentUser.role);
   
       // Then fetch stores
-      const response = await axios.get("http://192.168.43.101:8000/api/stores", { headers });
+      const response = await axios.get("http://192.168.43.102:8000/api/stores", { headers });
       // Transform the backend data to match frontend expectations
       const storesData = (response.data || []).map(store => ({
         id: store.id,

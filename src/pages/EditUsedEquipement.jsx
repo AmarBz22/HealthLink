@@ -26,6 +26,9 @@ const EditUsedEquipmentPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState({});
+  
+  // Track which existing images to delete
+  const [imagesToDelete, setImagesToDelete] = useState([]);
 
   const categories = [
     "Diagnostic Devices",       // ECG, ultrasound, thermometers
@@ -52,10 +55,10 @@ const EditUsedEquipmentPage = () => {
 
         // Fetch equipment data and user data in parallel
         const [equipmentResponse, userResponse] = await Promise.all([
-          fetch(`http://192.168.43.101:8000/api/product/${id}?with_images=true`, {
+          fetch(`http://192.168.43.102:8000/api/product/${id}?with_images=true`, {
             headers,
           }),
-          fetch("http://192.168.43.101:8000/api/user", { headers }).catch(() => null),
+          fetch("http://192.168.43.102:8000/api/user", { headers }).catch(() => null),
         ]);
 
         if (!equipmentResponse.ok) {
@@ -66,7 +69,7 @@ const EditUsedEquipmentPage = () => {
         const equipment = await equipmentResponse.json();
         // Assume store_id is part of equipment data or fetch it separately
         const storeResponse = await fetch(
-          `http://192.168.43.101:8000/api/store/${equipment.store_id}`,
+          `http://192.168.43.102:8000/api/store/${equipment.store_id}`,
           { headers }
         );
 
@@ -204,14 +207,24 @@ const EditUsedEquipmentPage = () => {
     const imageToRemove = previewImages[index];
 
     if (imageToRemove.isExisting) {
+      // Add to deletion list if it's an existing image
+      setImagesToDelete((prev) => [...prev, imageToRemove.id]);
       setPreviewImages((prev) => prev.filter((_, i) => i !== index));
     } else {
+      // Remove from preview and selected files if it's a new image
+      const existingImagesCount = previewImages.filter(img => img.isExisting).length;
+      const newImageIndex = index - existingImagesCount;
+      
       setPreviewImages((prev) => prev.filter((_, i) => i !== index));
-      setSelectedFiles((prev) =>
-        prev.filter((_, i) => i !== index - (previewImages.length - selectedFiles.length))
-      );
+      setSelectedFiles((prev) => prev.filter((_, i) => i !== newImageIndex));
     }
 
+    // Adjust current image index if necessary
+    if (currentImageIndex >= previewImages.length - 1) {
+      setCurrentImageIndex(Math.max(0, previewImages.length - 2));
+    }
+
+    // Clear file input if no images left
     if (previewImages.length === 1 && fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -259,19 +272,19 @@ const EditUsedEquipmentPage = () => {
       formData.append("category", equipmentData.category);
       formData.append("condition", equipmentData.condition);
 
+      // Add new images
       selectedFiles.forEach((file) => {
         formData.append("images[]", file);
       });
 
-      const imagesToKeep = previewImages
-        .filter((img) => img.isExisting)
-        .map((img) => img.name);
-
-      if (imagesToKeep.length > 0) {
-        formData.append("images_to_keep", JSON.stringify(imagesToKeep));
+      // Send images to delete (your backend expects 'delete_images')
+      if (imagesToDelete.length > 0) {
+        imagesToDelete.forEach((imageId) => {
+          formData.append("delete_images[]", imageId);
+        });
       }
 
-      const response = await fetch(`http://192.168.43.101:8000/api/product/${id}`, {
+      const response = await fetch(`http://192.168.43.102:8000/api/product/${id}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -304,7 +317,7 @@ const EditUsedEquipmentPage = () => {
   };
 
   const hasChanges = () => {
-    return Object.keys(modifiedFields).length > 0 || selectedFiles.length > 0;
+    return Object.keys(modifiedFields).length > 0 || selectedFiles.length > 0 || imagesToDelete.length > 0;
   };
 
   if (isLoading) {
@@ -474,7 +487,6 @@ const EditUsedEquipmentPage = () => {
                   Price (DZ)*
                 </label>
                 <div className="relative">
-                
                   <input
                     type="number"
                     name="price"
@@ -494,8 +506,6 @@ const EditUsedEquipmentPage = () => {
                 </div>
                 {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
               </div>
-
-              
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

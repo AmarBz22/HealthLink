@@ -138,7 +138,7 @@ const AddUsedEquipmentPage = () => {
       };
 
       const response = await fetch(
-        `http://192.168.43.101:8000/api/product/used-equipment`,
+        `http://192.168.43.102:8000/api/product/used-equipment`,
         {
           method: 'POST',
           headers,

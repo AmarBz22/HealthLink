@@ -131,12 +131,12 @@ const OrderDetailPage = () => {
         };
 
         // Get current user data
-        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
+        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
         const userData = userResponse.data;
         setCurrentUser(userData);
 
         // Fetch order details with eager loaded relationships
-        const response = await axios.get(`http://192.168.43.101:8000/api/product-orders/${id}`, { headers });
+        const response = await axios.get(`http://192.168.43.102:8000/api/product-orders/${id}`, { headers });
         const orderData = response.data;
         setOrder(orderData);
         
@@ -145,7 +145,7 @@ const OrderDetailPage = () => {
           setBuyerInfo(orderData.buyer);
         } else if (orderData.buyer_id) {
           try {
-            const buyerResponse = await axios.get(`http://192.168.43.101:8000/api/users/${orderData.buyer_id}`, { headers });
+            const buyerResponse = await axios.get(`http://192.168.43.102:8000/api/users/${orderData.buyer_id}`, { headers });
             setBuyerInfo(buyerResponse.data);
           } catch (buyerError) {
             console.error('Error fetching buyer details:', buyerError);
@@ -159,7 +159,7 @@ const OrderDetailPage = () => {
           for (const item of orderData.items) {
             if (item.seller_id && !newSellerInfoCache[item.seller_id]) {
               try {
-                const sellerResponse = await axios.get(`http://192.168.43.101:8000/api/users/${item.seller_id}`, { headers });
+                const sellerResponse = await axios.get(`http://192.168.43.102:8000/api/users/${item.seller_id}`, { headers });
                 newSellerInfoCache[item.seller_id] = sellerResponse.data;
               } catch (sellerError) {
                 console.error(`Error fetching seller details for seller ID ${item.seller_id}:`, sellerError);
@@ -420,7 +420,7 @@ const OrderDetailPage = () => {
       };
       
       await axios.put(
-        `http://192.168.43.101:8000/api/product-orders/${order.product_order_id}/approve`,
+        `http://192.168.43.102:8000/api/product-orders/${order.product_order_id}/approve`,
         {},
         { headers }
       );
@@ -451,7 +451,7 @@ const OrderDetailPage = () => {
       };
       
       await axios.delete(
-        `http://192.168.43.101:8000/api/product-orders/${order.product_order_id}`,
+        `http://192.168.43.102:8000/api/product-orders/${order.product_order_id}`,
         { headers }
       );
       
@@ -480,7 +480,7 @@ const OrderDetailPage = () => {
       };
       
       await axios.put(
-        `http://192.168.43.101:8000/api/product-orders/${order.product_order_id}/cancel`,
+        `http://192.168.43.102:8000/api/product-orders/${order.product_order_id}/cancel`,
         {},
         { headers }
       );
@@ -511,7 +511,7 @@ const OrderDetailPage = () => {
       };
       
       await axios.put(
-        `http://192.168.43.101:8000/api/product-orders/${order.product_order_id}/ship`,
+        `http://192.168.43.102:8000/api/product-orders/${order.product_order_id}/ship`,
         {},
         { headers }
       );
@@ -542,7 +542,7 @@ const OrderDetailPage = () => {
       };
       
       await axios.put(
-        `http://192.168.43.101:8000/api/product-orders/${order.product_order_id}/deliver`,
+        `http://192.168.43.102:8000/api/product-orders/${order.product_order_id}/deliver`,
         {},
         { headers }
       );
@@ -573,7 +573,7 @@ const OrderDetailPage = () => {
       };
 
       const ratingPromises = ratingsData.map(rating => 
-        axios.post('http://192.168.43.101:8000/api/ratings', rating, { headers })
+        axios.post('http://192.168.43.102:8000/api/ratings', rating, { headers })
       );
 
       await Promise.all(ratingPromises);

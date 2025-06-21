@@ -29,7 +29,7 @@ export const useOrderData = () => {
         Accept: 'application/json',
       };
 
-      const response = await axios.get(`http://192.168.43.101:8000/api/users/${userId}`, { headers });
+      const response = await axios.get(`http://192.168.43.102:8000/api/users/${userId}`, { headers });
       const userData = response.data.user || response.data;
 
       setUserDetails((prev) => ({
@@ -168,7 +168,7 @@ export const useOrderData = () => {
         setLoading(true);
 
         // Fetch current user
-        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
+        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
         const userData = userResponse.data.user || userResponse.data;
         setCurrentUser(userData);
 
@@ -176,7 +176,7 @@ export const useOrderData = () => {
         let buyerOrders = [];
         if (userData.role !== 'Supplier') {
           try {
-            const buyerResponse = await axios.get('http://192.168.43.101:8000/api/buyer-orders', { headers });
+            const buyerResponse = await axios.get('http://192.168.43.102:8000/api/buyer-orders', { headers });
             buyerOrders = buyerResponse.data.orders || buyerResponse.data || [];
             if (!Array.isArray(buyerOrders)) buyerOrders = [];
             buyerOrders = buyerOrders.map((order) => ({ ...order, isReceivedOrder: false }));
@@ -191,7 +191,7 @@ export const useOrderData = () => {
         let sellerOrders = [];
         try {
           const userId = userData.id || userData.user_id;
-          const sellerResponse = await axios.get(`http://192.168.43.101:8000/api/product-orders/seller/${userId}`, { headers });
+          const sellerResponse = await axios.get(`http://192.168.43.102:8000/api/product-orders/seller/${userId}`, { headers });
           sellerOrders = sellerResponse.data.orders || sellerResponse.data || [];
           if (!Array.isArray(sellerOrders)) sellerOrders = [];
           sellerOrders = sellerOrders.map((order) => ({ ...order, isReceivedOrder: true }));

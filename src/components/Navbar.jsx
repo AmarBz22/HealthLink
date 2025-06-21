@@ -32,7 +32,7 @@ const Navbar = () => {
           return;
         }
   
-        const response = await axios.get('http://192.168.43.101:8000/api/user', {
+        const response = await axios.get('http://192.168.43.102:8000/api/user', {
           headers: {
             Authorization: `Bearer ${authToken}`,
             Accept: 'application/json',
@@ -72,7 +72,7 @@ const Navbar = () => {
     try {
       const authToken = localStorage.getItem("authToken");
       await axios.post(
-        "http://192.168.43.101:8000/api/logout",
+        "http://192.168.43.102:8000/api/logout",
         {},
         {
           headers: {
@@ -196,7 +196,7 @@ const Navbar = () => {
           </span>
         </Link>
         
-        {/* Products/Inventory - Admin goes to admin-products, others go to inventory-products (except Doctor and Dentist) */}
+        {/* Products/Inventory - Admin goes to admin-products, all other users go to inventory-products */}
         {userRole === 'Admin' ? (
           <Link to="/admin-products" className="flex items-center space-x-1 group">
             <Tag 
@@ -215,25 +215,23 @@ const Navbar = () => {
             </span>
           </Link>
         ) : (
-          /* Inventory - Only for users who are NOT Doctor or Dentist */
-          userRole && !['Doctor', 'Dentist'].includes(userRole) && (
-            <Link to="/inventory-products" className="flex items-center space-x-1 group">
-              <Package 
-                className={`w-5 h-5 ${
-                  isActive('/inventory-products') 
-                    ? 'text-[#00796B]' 
-                    : 'text-gray-400 group-hover:text-[#00796B]'
-                }`}
-              />
-              <span className={`text-sm ${
+          /* Inventory - For all non-Admin users including Doctor and Dentist */
+          <Link to="/inventory-products" className="flex items-center space-x-1 group">
+            <Package 
+              className={`w-5 h-5 ${
                 isActive('/inventory-products') 
-                  ? 'text-[#00796B] font-medium' 
-                  : 'text-gray-500 group-hover:text-[#00796B]'
-              }`}>
-                Inventory
-              </span>
-            </Link>
-          )
+                  ? 'text-[#00796B]' 
+                  : 'text-gray-400 group-hover:text-[#00796B]'
+              }`}
+            />
+            <span className={`text-sm ${
+              isActive('/inventory-products') 
+                ? 'text-[#00796B] font-medium' 
+                : 'text-gray-500 group-hover:text-[#00796B]'
+            }`}>
+              Inventory
+            </span>
+          </Link>
         )}
         
         {/* Users - Only for Admin */}
@@ -248,7 +246,7 @@ const Navbar = () => {
           </Link>
         )}
         
-        {/* Used Equipment - Only for Doctor */}
+        {/* Used Equipment - Only for Doctor and Dentist */}
         {['Doctor', 'Dentist'].includes(userRole) && (
           <Link to="/used-equipment" className="flex items-center space-x-1 group">
             <Wrench 

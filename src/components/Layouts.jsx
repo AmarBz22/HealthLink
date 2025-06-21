@@ -40,7 +40,7 @@ const UserProvider = ({ children }) => {
           'Content-Type': 'application/json'
         };
 
-        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
+        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
         const currentUser = userResponse.data;
         
         setUser(currentUser);

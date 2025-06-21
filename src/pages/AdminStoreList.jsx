@@ -62,7 +62,7 @@ const AdminStoreList = () => {
 
     try {
       let response;
-      let apiUrl = `http://192.168.43.101:8000/api/user/${ownerId}`;
+      let apiUrl = `http://192.168.43.102:8000/api/user/${ownerId}`;
       
       try {
         response = await axios.get(apiUrl, {
@@ -72,7 +72,7 @@ const AdminStoreList = () => {
           }
         });
       } catch (firstError) {
-        apiUrl = `http://192.168.43.101:8000/api/users/${ownerId}`;
+        apiUrl = `http://192.168.43.102:8000/api/users/${ownerId}`;
         response = await axios.get(apiUrl, {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -116,7 +116,7 @@ const AdminStoreList = () => {
         }
 
         // Verify if user is admin
-        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -132,7 +132,7 @@ const AdminStoreList = () => {
         setCurrentAdminId(userResponse.data.id);
 
         // Fetch stores if admin
-        const response = await axios.get('http://192.168.43.101:8000/api/stores', {
+        const response = await axios.get('http://192.168.43.102:8000/api/stores', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -186,7 +186,7 @@ const AdminStoreList = () => {
         'Accept': 'application/json'
       };
 
-      await axios.delete(`http://192.168.43.101:8000/api/admin/store/${storeId}`, { headers });
+      await axios.delete(`http://192.168.43.102:8000/api/admin/store/${storeId}`, { headers });
       
       setStores(prevStores => prevStores.filter(store => store.id !== storeId));
       

@@ -93,7 +93,7 @@ const HomePage = () => {
         // Fetch all products
         let productsData = [];
         try {
-          const productsResponse = await fetch('http://192.168.43.101:8000/api/products');
+          const productsResponse = await fetch('http://192.168.43.102:8000/api/products');
           if (!productsResponse.ok) {
             throw new Error(`Products API returned ${productsResponse.status}: ${productsResponse.statusText}`);
           }
@@ -109,7 +109,7 @@ const HomePage = () => {
           setRecommendationsLoading(true);
           try {
             const token = localStorage.getItem('authToken');
-            const recommendationsResponse = await fetch('http://192.168.43.101:8000/api/recommendations', {
+            const recommendationsResponse = await fetch('http://192.168.43.102:8000/api/recommendations', {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -130,7 +130,7 @@ const HomePage = () => {
         // Fetch stores
         let storesData = [];
         try {
-          const storesResponse = await fetch('http://192.168.43.101:8000/api/stores');
+          const storesResponse = await fetch('http://192.168.43.102:8000/api/stores');
           if (!storesResponse.ok) {
             throw new Error(`Stores API returned ${storesResponse.status}: ${storesResponse.statusText}`);
           }
@@ -160,10 +160,10 @@ const HomePage = () => {
     fetchData();
   }, [isLoggedIn]);
 
-  // Handle image search results
+  // Handle image search results (limited to first 3 products)
   const handleImageSearchResults = (results) => {
     console.log('Image search results received:', results);
-    setImageSearchResults(results);
+    setImageSearchResults(results.slice(0, 3)); // Limit to first 3 products
     setHasImageSearched(true);
     if (results && results.length > 0) {
       setSearchQuery('');
@@ -173,58 +173,64 @@ const HomePage = () => {
   // Search and filter logic using useMemo for performance
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...featuredProducts];
-    
+  
     if (hasImageSearched && imageSearchResults.length > 0) {
+      // Map imageSearchResults IDs to their original indices to preserve order
       const imageResultIds = imageSearchResults.map(result => result.product_id || result.id);
-      filtered = filtered.filter(product => imageResultIds.includes(product.product_id || product.id));
-    }
-    
-    if (searchQuery.trim() && !hasImageSearched) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(product => 
-        product.product_name?.toLowerCase().includes(query) ||
-        product.name?.toLowerCase().includes(query) ||
-        product.description?.toLowerCase().includes(query) ||
-        product.category?.toLowerCase().includes(query) ||
-        product.brand?.toLowerCase().includes(query)
-      );
-    }
-    
-    if (selectedCategory) {
-      const categoryName = categories.find(cat => cat.id === parseInt(selectedCategory))?.name;
-      if (categoryName) {
+      const idToIndex = new Map(imageResultIds.map((id, index) => [id, index]));
+      filtered = filtered
+        .filter(product => imageResultIds.includes(product.product_id || product.id))
+        .sort((a, b) => idToIndex.get(a.product_id || a.id) - idToIndex.get(b.product_id || b.id));
+    } else {
+      // Apply text search, category, and price filters
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(product => 
-          product.category?.toLowerCase().includes(categoryName.toLowerCase())
+          product.product_name?.toLowerCase().includes(query) ||
+          product.name?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query) ||
+          product.brand?.toLowerCase().includes(query)
         );
       }
-    }
-    
-    if (priceRange.min || priceRange.max) {
-      filtered = filtered.filter(product => {
-        const price = parseFloat(product.price || 0);
-        const min = priceRange.min ? parseFloat(priceRange.min) : 0;
-        const max = priceRange.max ? parseFloat(priceRange.max) : Infinity;
-        return price >= min && price <= max;
+  
+      if (selectedCategory) {
+        const categoryName = categories.find(cat => cat.id === parseInt(selectedCategory))?.name;
+        if (categoryName) {
+          filtered = filtered.filter(product => 
+            product.category?.toLowerCase().includes(categoryName.toLowerCase())
+          );
+        }
+      }
+  
+      if (priceRange.min || priceRange.max) {
+        filtered = filtered.filter(product => {
+          const price = parseFloat(product.price || 0);
+          const min = priceRange.min ? parseFloat(priceRange.min) : 0;
+          const max = priceRange.max ? parseFloat(priceRange.max) : Infinity;
+          return price >= min && price <= max;
+        });
+      }
+  
+      // Apply sorting for non-image searches
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case 'price':
+            return parseFloat(a.price || 0) - parseFloat(b.price || 0);
+          case 'price_desc':
+            return parseFloat(b.price || 0) - parseFloat(a.price || 0);
+          case 'newest':
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+          case 'product_name':
+          default:
+            return (a.product_name || a.name || '').localeCompare(b.product_name || b.name || '');
+        }
       });
     }
-    
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'price':
-          return (parseFloat(a.price || 0) - parseFloat(b.price || 0));
-        case 'price_desc':
-          return (parseFloat(b.price || 0) - parseFloat(a.price || 0));
-        case 'newest':
-          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-        case 'product_name':
-        default:
-          return (a.product_name || a.name || '').localeCompare(b.product_name || b.name || '');
-      }
-    });
-    
+  
+    console.log('Filtered and sorted products:', filtered.map(p => p.product_id || p.id));
     return filtered;
   }, [featuredProducts, searchQuery, selectedCategory, categories, priceRange, sortBy, imageSearchResults, hasImageSearched]);
-
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
@@ -368,68 +374,96 @@ const HomePage = () => {
 
       {/* Search Results or Default Content */}
       {searchQuery || hasActiveFilters || hasImageSearched ? (
-        <div className="py-12 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {hasImageSearched && !searchQuery ? 'Image Search Results' : 'Search Results'}
-              </h2>
-              <div className="text-sm text-gray-600">
-                {hasImageSearched && imageSearchResults.length > 0 && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 mr-2">
-                    📷 Image Search Active
-                  </span>
-                )}
-                {filteredAndSortedProducts.length} of {featuredProducts.length} products
-              </div>
-            </div>
-            
-            {filteredAndSortedProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredAndSortedProducts.map((product) => (
+  <div className="py-12 bg-gray-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">
+          {hasImageSearched && !searchQuery ? 'Image Search Results' : 'Search Results'}
+        </h2>
+        <div className="text-sm text-gray-600">
+          {hasImageSearched && imageSearchResults.length > 0 && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 mr-2">
+              📷 Image Search Active
+            </span>
+          )}
+          {filteredAndSortedProducts.length} of {featuredProducts.length} products
+        </div>
+      </div>
+      
+      {filteredAndSortedProducts.length > 0 ? (
+        <div className="relative">
+          <button
+            onClick={() => scrollLeft(allProductsRef)}
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => scrollRight(allProductsRef)}
+            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-[#00796B] text-white rounded-full hover:bg-[#00695C] transition-colors z-10"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <div
+            ref={allProductsRef}
+            className="flex overflow-x-auto space-x-6 pb-4 snap-x snap-mandatory scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {filteredAndSortedProducts.map((product, index) => (
+              <div key={product.product_id || product.id} className="flex-none w-64 snap-start">
+                <div className="relative">
+                  {hasImageSearched && (
+                    <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white text-xs px-2 py-1 rounded-full shadow-lg">
+                      #{index + 1} Match
+                    </div>
+                  )}
                   <ProductCard
-                    key={product.product_id || product.id}
                     product={product}
-                    storageUrl="http://192.168.43.101:8000/storage"
+                    storageUrl="http://192.168.43.102:8000/storage"
                     onAddToCart={() => handleAddToCart(product)}
                     onViewDetails={() => handleViewDetails(product)}
                     className="h-full"
                     imageHeight="h-48"
                     isInCart={cartItems.some(item => (item.product_id || item.id) === (product.product_id || product.id))}
                   />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100">
-                <div className="max-w-md mx-auto">
-                  <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
-                    {hasImageSearched ? (
-                      <span className="text-3xl">📷</span>
-                    ) : (
-                      <Search className="w-10 h-10 text-gray-500" />
-                    )}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                    {hasImageSearched ? 'No matching products found' : 'No products found'}
-                  </h3>
-                  <p className="text-gray-500 mb-6 leading-relaxed">
-                    {hasImageSearched 
-                      ? "We couldn't find any products matching your uploaded image. Try uploading a different image or use text search instead."
-                      : "We couldn't find any products matching your search criteria. Try adjusting your filters or search terms."
-                    }
-                  </p>
-                  <button
-                    onClick={clearFilters}
-                    className="px-8 py-3 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white font-medium rounded-xl hover:from-[#00695C] hover:to-[#00796B] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    {hasImageSearched ? 'Clear Image Search' : 'Clear All Filters'}
-                  </button>
                 </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       ) : (
+        <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100">
+          <div className="max-w-md mx-auto">
+            <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+              {hasImageSearched ? (
+                <span className="text-3xl">📷</span>
+              ) : (
+                <Search className="w-10 h-10 text-gray-500" />
+              )}
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">
+              {hasImageSearched ? 'No matching products found' : 'No products found'}
+            </h3>
+            <p className="text-gray-500 mb-6 leading-relaxed">
+              {hasImageSearched 
+                ? "We couldn't find any products matching your uploaded image. Try uploading a different image or use text search instead."
+                : "We couldn't find any products matching your search criteria. Try adjusting your filters or search terms."
+              }
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-8 py-3 bg-gradient-to-r from-[#00796B] to-[#26A69A] text-white font-medium rounded-xl hover:from-[#00695C] hover:to-[#00796B] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              {hasImageSearched ? 'Clear Image Search' : 'Clear All Filters'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+) : (
+  // Default content
+
         <>
           {/* Featured Categories */}
           <div className="py-12 bg-white">
@@ -509,7 +543,7 @@ const HomePage = () => {
                             </div>
                             <ProductCard
                               product={product}
-                              storageUrl="http://192.168.43.101:8000/storage"
+                              storageUrl="http://192.168.43.102:8000/storage"
                               onAddToCart={() => handleAddToCart(product)}
                               onViewDetails={() => handleViewDetails(product)}
                               className="h-full"
@@ -578,7 +612,7 @@ const HomePage = () => {
                     <div key={product.product_id} className="flex-none w-64 snap-start">
                       <ProductCard
                         product={product}
-                        storageUrl="http://192.168.43.101:8000/storage"
+                        storageUrl="http://192.168.43.102:8000/storage"
                         onAddToCart={() => handleAddToCart(product)}
                         onViewDetails={() => handleViewDetails(product)}
                         className="h-full"

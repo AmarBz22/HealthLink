@@ -49,7 +49,7 @@ const ConnectionModal = ({
                 <div className="h-16 w-16 bg-gray-100 rounded-full overflow-hidden">
                   <img 
                     src={selectedItem.logo_path 
-                      ? `http://192.168.43.101:8000/storage/${selectedItem.logo_path}` 
+                      ? `http://192.168.43.102:8000/storage/${selectedItem.logo_path}` 
                       : '/api/placeholder/80/80'} 
                     alt={`${selectedItem.name} logo`}
                     className="h-full w-full object-cover"

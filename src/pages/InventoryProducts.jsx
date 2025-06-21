@@ -17,10 +17,9 @@ const InventoryProductsPage = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState('');
   const [deletingProductId, setDeletingProductId] = useState(null);
-  const storageUrl = 'http://192.168.43.101:8000/storage';
+  const storageUrl = 'http://192.168.43.102:8000/storage';
   
-  // Authorization states
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  // User role state (kept for display purposes but not for authorization)
   const [userRole, setUserRole] = useState(null);
   
   // Image search states
@@ -38,12 +37,8 @@ const InventoryProductsPage = () => {
   // Categories for filter dropdown
   const categories = ['Medications', 'Electronics', 'Clothing', 'Food', 'Beauty', 'Other'];
 
-  // Define authorized roles - add or remove roles as needed
-  const authorizedRoles = ['Admin', 'Pharmacist', 'Supplier', 'Customer'];
-  const unauthorizedRoles = ['Doctor', 'Dentist'];
-
   useEffect(() => {
-    const verifyAuthorizationAndFetchProducts = async () => {
+    const fetchProducts = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
@@ -59,22 +54,16 @@ const InventoryProductsPage = () => {
           'Accept': 'application/json'
         };
 
-        // First verify user role and authorization
-        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
-        const currentUserRole = userResponse.data.role;
-        setUserRole(currentUserRole);
-
-        // Check if user role is authorized to access inventory
-        if (unauthorizedRoles.includes(currentUserRole)) {
-          setIsAuthorized(false);
-          setLoading(false);
-          return;
+        // Get user role for display purposes (no authorization check)
+        try {
+          const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
+          setUserRole(userResponse.data.role);
+        } catch (error) {
+          console.warn('Could not fetch user role:', error);
         }
 
-        setIsAuthorized(true);
-
-        // If authorized, fetch inventory products
-        const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
+        // Fetch inventory products - accessible to all authenticated users
+        const productsResponse = await axios.get('http://192.168.43.102:8000/api/products', { headers });
         
         // Filter products to only show those with type="inventory"
         const filteredProducts = Array.isArray(productsResponse.data) 
@@ -89,7 +78,7 @@ const InventoryProductsPage = () => {
           filteredProducts.map(async (product) => {
             try {
               const ownershipResponse = await axios.get(
-                `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
+                `http://192.168.43.102:8000/api/products/${product.product_id}/check-owner`, 
                 { headers }
               );
               ownershipChecks[product.product_id] = ownershipResponse.data.isOwner || false;
@@ -114,7 +103,7 @@ const InventoryProductsPage = () => {
       }
     };
 
-    verifyAuthorizationAndFetchProducts();
+    fetchProducts();
   }, [navigate]);
 
   const handleDeleteProduct = async (product) => {
@@ -133,7 +122,7 @@ const InventoryProductsPage = () => {
         };
   
         await axios.delete(
-          `http://192.168.43.101:8000/api/product/${product.product_id}`, 
+          `http://192.168.43.102:8000/api/product/${product.product_id}`, 
           { headers }
         );
   
@@ -149,7 +138,7 @@ const InventoryProductsPage = () => {
   };
 
   const handleEditProduct = (product) => {
-    navigate(`/inventory/products/${product.product_id}/edit`);
+    navigate(`/store/${product.store_id}/products/${product.product_id}/edit`);
   };
 
   // Updated handleAddToCart - now opens the modal
@@ -216,40 +205,6 @@ const InventoryProductsPage = () => {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00796B]"></div>
-      </div>
-    );
-  }
-
-  // Show unauthorized access page
-  if (!isAuthorized) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md w-full mx-4">
-          <div className="mx-auto h-16 w-16 text-red-500 mb-4">
-            <FiPackage className="w-full h-full" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Access Restricted</h2>
-          <p className="text-gray-600 mb-2">
-            Inventory access is not available for {userRole} accounts.
-          </p>
-          <p className="text-sm text-gray-500 mb-6">
-            This section is restricted to authorized personnel only.
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/')}
-              className="w-full px-4 py-2 bg-[#00796B] text-white rounded-md hover:bg-[#00695C] transition-colors"
-            >
-              Return to Dashboard
-            </button>
-            <button
-              onClick={() => navigate(-1)}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
       </div>
     );
   }

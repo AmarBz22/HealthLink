@@ -27,6 +27,7 @@ const ProductCard = ({
   className = '',
   imageHeight = 'h-48',
   showInventoryPrice = false,
+  // Deprecated props - keeping for backward compatibility
   averageRating = 0,
   totalRatings = 0,
   isInCart = false,
@@ -34,30 +35,18 @@ const ProductCard = ({
   // Optimization props
   userInfo = null,
   skipOwnershipCheck = false,
-  preloadedRating = null,
   // New optimization props
   authToken = null,
   batchedData = null,
-  disableRatingFetch = false,
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [verifiedOwnership, setVerifiedOwnership] = useState(
     skipOwnershipCheck ? isOwner : null
   );
-  const [productRating, setProductRating] = useState({ 
-    average: preloadedRating?.average || averageRating || 0, 
-    count: preloadedRating?.count || totalRatings || 0 
-  });
-  const [loadingRating, setLoadingRating] = useState(false);
   const [loadingOwnership, setLoadingOwnership] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
-
-  // Determine if inventory price should be shown based on product type
-  const shouldShowInventoryPrice = useMemo(() => {
-    return showInventoryPrice || product.type === 'inventory';
-  }, [showInventoryPrice, product.type]);
 
   // Get auth token with fallback
   const token = useMemo(() => {
@@ -75,6 +64,17 @@ const ProductCard = ({
       hasMultipleImages: images.length > 1
     };
   }, [product.images]);
+
+  // Get rating directly from product data
+  const productRating = useMemo(() => {
+    const avgRating = product.average_rating;
+    const totalRatings = product.total_ratings;
+    
+    return {
+      average: (avgRating !== null && avgRating !== undefined) ? parseFloat(avgRating) : 0,
+      count: (totalRatings !== null && totalRatings !== undefined) ? parseInt(totalRatings) : 0
+    };
+  }, [product.average_rating, product.total_ratings]);
 
   // Optimized display image calculation
   const getDisplayImage = useMemo(() => {
@@ -103,7 +103,7 @@ const ProductCard = ({
     };
   }, []);
 
-  // Single optimized data fetch effect
+  // Only fetch ownership data if needed
   useEffect(() => {
     if (!product.product_id || !token || dataFetched) {
       if (!token) {
@@ -113,18 +113,21 @@ const ProductCard = ({
       return;
     }
 
+    // Check if batched data has ownership info
     if (batchedData && batchedData[product.product_id]) {
       const data = batchedData[product.product_id];
       if (data.ownership !== undefined) {
         setVerifiedOwnership(data.ownership);
         setLoadingOwnership(false);
       }
-      if (data.rating) {
-        setProductRating({
-          average: data.rating.average || 0,
-          count: data.rating.count || 0
-        });
-      }
+      setDataFetched(true);
+      return;
+    }
+
+    // Only fetch ownership if needed
+    const needsOwnershipCheck = !skipOwnershipCheck && verifiedOwnership === null;
+    
+    if (!needsOwnershipCheck) {
       setDataFetched(true);
       return;
     }
@@ -132,103 +135,41 @@ const ProductCard = ({
     let isMounted = true;
     const controller = new AbortController();
 
-    const fetchProductData = async () => {
-      const needsOwnershipCheck = !skipOwnershipCheck && verifiedOwnership === null;
-      const needsRatingCheck = !disableRatingFetch && !preloadedRating && productRating.average === 0;
-
-      if (!needsOwnershipCheck && !needsRatingCheck) {
-        setDataFetched(true);
-        return;
-      }
-
+    const fetchOwnership = async () => {
       try {
+        setLoadingOwnership(true);
+        
         const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         };
 
-        const requests = [];
-        
-        if (needsOwnershipCheck) {
-          setLoadingOwnership(true);
-          requests.push({
-            type: 'ownership',
-            promise: fetch(
-              `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
-              { headers, signal: controller.signal }
-            )
-          });
-        }
+        const response = await fetch(
+          `http://192.168.43.102:8000/api/products/${product.product_id}/check-owner`, 
+          { headers, signal: controller.signal }
+        );
 
-        if (needsRatingCheck) {
-          setLoadingRating(true);
-          requests.push({
-            type: 'rating',
-            promise: fetch(
-              `http://192.168.43.101:8000/api/products/${product.product_id}/average-rating`, 
-              { headers, signal: controller.signal }
-            )
-          });
-        }
-
-        if (requests.length === 0) {
-          setDataFetched(true);
-          return;
-        }
-
-        const results = await Promise.allSettled(requests.map(r => r.promise));
-        
-        for (let i = 0; i < results.length; i++) {
-          if (!isMounted) break;
-          
-          const result = results[i];
-          const requestType = requests[i].type;
-          
-          if (result.status === 'fulfilled' && result.value.ok) {
-            try {
-              const data = await result.value.json();
-              
-              if (requestType === 'ownership') {
-                setVerifiedOwnership(data.isOwner);
-              } else if (requestType === 'rating') {
-                setProductRating({
-                  average: data.average_rating || 0,
-                  count: data.total_ratings || 0
-                });
-              }
-            } catch (parseError) {
-              console.warn(`Failed to parse ${requestType} response:`, parseError);
-              if (requestType === 'ownership') {
-                setVerifiedOwnership(false);
-              }
-            }
-          } else {
-            if (requestType === 'ownership') {
-              setVerifiedOwnership(false);
-            }
-            if (result.status === 'rejected' && result.reason.name !== 'AbortError') {
-              console.warn(`${requestType} request failed:`, result.reason);
-            }
-          }
+        if (isMounted && response.ok) {
+          const data = await response.json();
+          setVerifiedOwnership(data.isOwner);
+        } else if (isMounted) {
+          setVerifiedOwnership(false);
         }
       } catch (error) {
         if (error.name !== 'AbortError' && isMounted) {
-          console.error('Error fetching product data:', error);
-          if (needsOwnershipCheck) {
-            setVerifiedOwnership(false);
-          }
+          console.error('Error fetching ownership:', error);
+          setVerifiedOwnership(false);
         }
       } finally {
         if (isMounted) {
-          setLoadingRating(false);
           setLoadingOwnership(false);
           setDataFetched(true);
         }
       }
     };
 
-    const debouncedFetchData = debouncedFetch(fetchProductData, 50);
-    debouncedFetchData();
+    const debouncedFetchOwnership = debouncedFetch(fetchOwnership, 50);
+    debouncedFetchOwnership();
 
     return () => {
       isMounted = false;
@@ -238,8 +179,6 @@ const ProductCard = ({
     product.product_id, 
     token, 
     skipOwnershipCheck, 
-    disableRatingFetch,
-    preloadedRating,
     batchedData,
     dataFetched
   ]);
@@ -301,14 +240,6 @@ const ProductCard = ({
   const isCheckingOwnership = !skipOwnershipCheck && verifiedOwnership === null && token && !dataFetched;
   const showButtonsLoading = loadingOwnership || isCheckingOwnership;
 
-  // Loading spinner component
-  const LoadingSpinner = ({ size = 16 }) => (
-    <div 
-      className="animate-spin rounded-full border-t-2 border-b-2 border-[#00796B]" 
-      style={{ width: size, height: size }}
-    />
-  );
-
   // Render action buttons with loading states
   const renderActionButtons = () => {
     if (showButtonsLoading) {
@@ -332,7 +263,7 @@ const ProductCard = ({
             <FiEdit size={18} />
           </button>
           
-          {product.type !== 'used_equipment' && !shouldShowInventoryPrice && onPromoteProduct && (
+          {product.type !== 'used_equipment' && !showInventoryPrice && onPromoteProduct && (
             <button
               onClick={() => onPromoteProduct(product)}
               className={`p-2 text-[#00796B] hover:bg-[#E0F2F1] rounded-full transition-colors ${
@@ -419,7 +350,7 @@ const ProductCard = ({
             {productRating.average > 0 && (
               <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 text-xs rounded-full flex items-center gap-1">
                 <FiStar size={12} className="text-yellow-400 fill-current" />
-                <span>{productRating.average.toFixed(1)}</span>
+                <span>{Number(productRating.average).toFixed(1)}</span>
                 {productRating.count > 0 && <span>({productRating.count})</span>}
               </div>
             )}
@@ -450,7 +381,7 @@ const ProductCard = ({
             <FiShoppingCart size={48} />
           </div>
         )}
-        {shouldShowInventoryPrice && product.stock !== undefined && (
+        {showInventoryPrice && product.stock !== undefined && (
           <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${
             product.stock > 10 
               ? 'bg-green-100 text-green-800' 
@@ -483,58 +414,43 @@ const ProductCard = ({
         
         <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
         
-        {!disableRatingFetch && (
-          <div className="mb-3">
-            <div className="flex items-center gap-2">
-              {loadingRating ? (
-                <div className="flex items-center gap-2">
-                  <div className="animate-pulse flex gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="w-4 h-4 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                  <span className="text-sm text-gray-400">Loading...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex gap-1">
-                    {renderStars(productRating.average, 16)}
-                  </div>
-                  <span className="text-sm text-gray-600">
-                    {productRating.average > 0 ? (
-                      <>
-                        {productRating.average.toFixed(1)} 
-                        {productRating.count > 0 && (
-                          <span className="text-gray-500">
-                            ({productRating.count} review{productRating.count !== 1 ? 's' : ''})
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-gray-500">No reviews yet</span>
-                    )}
-                  </span>
-                </>
-              )}
+        {/* Rating section - now uses direct product data */}
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {renderStars(productRating.average, 16)}
             </div>
+            <span className="text-sm text-gray-600">
+              {productRating.average > 0 ? (
+                <>
+                  {Number(productRating.average).toFixed(1)} 
+                  {productRating.count > 0 && (
+                    <span className="text-gray-500">
+                      ({productRating.count} review{productRating.count !== 1 ? 's' : ''})
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-gray-500">No reviews yet</span>
+              )}
+            </span>
           </div>
-        )}
+        </div>
         
-        {/* Display category for all product types */}
-        {product.category && (
+        {showInventoryPrice && product.category && (
           <p className="text-sm text-gray-500 mb-2">Category: {product.category}</p>
         )}
         
         <div className="flex justify-between items-center">
           <div>
-            {shouldShowInventoryPrice && product.inventory_price && (
+            {showInventoryPrice && product.inventory_price && (
               <div className="font-bold text-[#00796B]">
                 Cost: DZD {parseFloat(product.inventory_price).toFixed(2)}
               </div>
             )}
-            <div className={shouldShowInventoryPrice ? "text-sm text-gray-500" : "font-bold text-[#00796B]"}>
+            <div className={showInventoryPrice ? "text-sm text-gray-500" : "font-bold text-[#00796B]"}>
               DZD {parseFloat(product.price).toFixed(2)}
-              {shouldShowInventoryPrice && " (Sale Price)"}
+              {showInventoryPrice && " (Sale Price)"}
             </div>
           </div>
           
@@ -549,6 +465,12 @@ const ProductCard = ({
             <FiEye size={16} /> View Details
           </button>
         </div>
+        
+        {showInventoryPrice && (
+          <div className="mt-3 text-sm text-gray-500">
+            Added: {new Date(product.created_at || product.added_date).toLocaleDateString()}
+          </div>
+        )}
       </div>
     </div>
   );

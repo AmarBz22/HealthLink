@@ -73,7 +73,7 @@ const AddProductPage = () => {
       };
   
       const response = await axios.post(
-        `http://192.168.43.101:8000/api/product`,
+        `http://192.168.43.102:8000/api/product`,
         formData,
         { headers }
       );

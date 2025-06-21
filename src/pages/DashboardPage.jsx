@@ -86,7 +86,7 @@ const DashboardPage = () => {
         };
 
         // Verify user role and authorization
-        const userResponse = await fetchWithErrorHandling('http://192.168.43.101:8000/api/user', headers);
+        const userResponse = await fetchWithErrorHandling('http://192.168.43.102:8000/api/user', headers);
         
         if (!userResponse || Object.keys(userResponse).length === 0) {
           toast.error('Failed to authenticate user');
@@ -115,9 +115,9 @@ const DashboardPage = () => {
         
         if (userRoleLower === 'admin') {
           const [usersData, storesData, productsData] = await Promise.all([
-            fetchWithErrorHandling('http://192.168.43.101:8000/api/admin/users', headers),
-            fetchWithErrorHandling('http://192.168.43.101:8000/api/stores', headers),
-            fetchWithErrorHandling('http://192.168.43.101:8000/api/products', headers)
+            fetchWithErrorHandling('http://192.168.43.102:8000/api/admin/users', headers),
+            fetchWithErrorHandling('http://192.168.43.102:8000/api/stores', headers),
+            fetchWithErrorHandling('http://192.168.43.102:8000/api/products', headers)
           ]);
           
           const formattedUsers = Array.isArray(usersData.users) ? usersData.users : 
@@ -131,9 +131,9 @@ const DashboardPage = () => {
           });
         } else if (userRoleLower === 'supplier') {
           const [allStoresData, allProductsData, supplierOrdersData] = await Promise.all([
-            fetchWithErrorHandling('http://192.168.43.101:8000/api/stores', headers),
-            fetchWithErrorHandling('http://192.168.43.101:8000/api/products', headers),
-            fetchWithErrorHandling(`http://192.168.43.101:8000/api/product-orders/seller/${userResponse.id}`, headers)
+            fetchWithErrorHandling('http://192.168.43.102:8000/api/stores', headers),
+            fetchWithErrorHandling('http://192.168.43.102:8000/api/products', headers),
+            fetchWithErrorHandling(`http://192.168.43.102:8000/api/product-orders/seller/${userResponse.id}`, headers)
           ]);
           
           const supplierStores = Array.isArray(allStoresData) ? 
@@ -149,8 +149,12 @@ const DashboardPage = () => {
               }
               return false;
             }) : [];
+
+          console.log(supplierOrdersData)            
           
-          const supplierOrders = Array.isArray(supplierOrdersData) ? supplierOrdersData : [];
+          const supplierOrders = Array.isArray(supplierOrdersData?.orders) ? supplierOrdersData.orders : 
+          Array.isArray(supplierOrdersData) ? supplierOrdersData : [];
+
           
           setDashboardData({
             users: [],
@@ -379,12 +383,14 @@ const DashboardPage = () => {
                 <FiShoppingBag className="mr-2 text-[#00796B]" /> 
                 {isSupplier ? 'My Stores' : 'Stores'}
               </h2>
-              <button 
-                onClick={() => navigate('/Admin-stores')}
-                className="text-sm text-[#00796B] hover:underline"
-              >
-                View all
-              </button>
+              {isAdmin && (
+                <button 
+                  onClick={() => navigate('/Admin-stores')}
+                  className="text-sm text-[#00796B] hover:underline"
+                >
+                  View all
+                </button>
+              )}
             </div>
             <div className="px-6 py-4">
               {filterData(dashboardData.stores, 'store_name').slice(0, 5).map((store, index) => (
@@ -434,12 +440,14 @@ const DashboardPage = () => {
                 <FiPackage className="mr-2 text-[#00796B]" /> 
                 {isSupplier ? 'My Products' : 'Products'}
               </h2>
-              <button 
-                onClick={() => navigate('/Admin-products')}
-                className="text-sm text-[#00796B] hover:underline"
-              >
-                View all
-              </button>
+              {isAdmin && (
+                <button 
+                  onClick={() => navigate('/Admin-products')}
+                  className="text-sm text-[#00796B] hover:underline"
+                >
+                  View all
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -493,7 +501,8 @@ const DashboardPage = () => {
                                 </div>
                               </div>
                             </div>
-                          </td>  <td className="px-6 py-4 whitespace-nowrap">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">DZD{product.price || '0.00'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

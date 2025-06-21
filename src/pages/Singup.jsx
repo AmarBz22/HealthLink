@@ -228,7 +228,7 @@ const SignupPage = () => {
     setErrors({});
 
     try {
-      const response = await fetch('http://192.168.43.101:8000/api/register', {
+      const response = await fetch('http://192.168.43.102:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -496,7 +496,6 @@ const SignupPage = () => {
                     >
                       <option value="Dentist">Dentist</option>
                       <option value="Doctor">Doctor</option>
-                      <option value="Labo">Labo</option>
                       <option value="Pharmacist">Pharmacist</option>
                       <option value="Supplier">Supplier</option>
                     </select>

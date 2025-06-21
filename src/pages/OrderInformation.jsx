@@ -51,7 +51,7 @@ const OrderInformationPage = () => {
                   {product.image_path ? (
                     <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden">
                       <img 
-                        src={`http://192.168.43.101:8000/storage/${product.image_path}`}
+                        src={`http://192.168.43.102:8000/storage/${product.image_path}`}
                         alt={product.product_name}
                         className="w-full h-full object-cover"
                       />

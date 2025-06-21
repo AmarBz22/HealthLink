@@ -61,7 +61,7 @@ const ImageSearchComponent = ({
       const formData = new FormData();
       formData.append('image', searchImage);
   
-      const response = await fetch('http://192.168.43.101:8000/api/search-by-image', {
+      const response = await fetch('http://192.168.43.102:8000/api/search-by-image', {
         method: 'POST',
         body: formData,
         headers: {
@@ -137,7 +137,13 @@ const ImageSearchComponent = ({
       });
 
       const deduplicatedProducts = Array.from(productMap.values());
-      deduplicatedProducts.sort((a, b) => a.distance - b.distance);
+deduplicatedProducts.sort((a, b) => a.distance - b.distance);
+console.log('Image search results before passing to parent:', deduplicatedProducts.map(p => ({
+  product_id: p.product_id,
+  product_name: p.product_name,
+  distance: p.distance
+})));
+onSearchResults(deduplicatedProducts);
       
       onSearchResults(deduplicatedProducts);
 

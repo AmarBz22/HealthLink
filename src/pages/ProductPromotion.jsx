@@ -25,7 +25,7 @@ const ProductPromotionPage = () => {
         };
 
         const productResponse = await axios.get(
-          `http://192.168.43.101:8000/api/products/${productId}`, 
+          `http://192.168.43.102:8000/api/products/${productId}`, 
           { headers }
         );
 
@@ -53,7 +53,7 @@ const ProductPromotionPage = () => {
       const token = localStorage.getItem('authToken');
       
       const response = await axios.post(
-        `http://192.168.43.101:8000/api/products/${productId}/apply-discount`,
+        `http://192.168.43.102:8000/api/products/${productId}/apply-discount`,
         formData,
         {
           headers: {
@@ -126,7 +126,7 @@ const ProductPromotionPage = () => {
             <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
               {product.image_path ? (
                 <img 
-                  src={`http://192.168.43.101:8000/storage/${product.image_path}`} 
+                  src={`http://192.168.43.102:8000/storage/${product.image_path}`} 
                   alt={product.product_name}
                   className="w-full h-full object-cover"
                 />

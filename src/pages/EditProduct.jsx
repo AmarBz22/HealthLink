@@ -12,6 +12,7 @@ const EditProductPage = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [originalProductData, setOriginalProductData] = useState(null);
   const [modifiedFields, setModifiedFields] = useState({});
+  const [imagesToDelete, setImagesToDelete] = useState([]); // Track images to delete
 
   const [productData, setProductData] = useState({
     store_id: storeId,
@@ -53,16 +54,14 @@ const EditProductPage = () => {
           "Accept": "application/json"
         };
 
-        // Fetch product data with images and user data in parallel
         const [productResponse, userResponse] = await Promise.all([
-          axios.get(`http://192.168.43.101:8000/api/product/${productId}?with_images=true`, { headers }),
-          axios.get('http://192.168.43.101:8000/api/user', { headers }).catch(() => null)
+          axios.get(`http://192.168.43.102:8000/api/product/${productId}?with_images=true`, { headers }),
+          axios.get('http://192.168.43.102:8000/api/user', { headers }).catch(() => null)
         ]);
 
         const product = productResponse.data;
-        const storeResponse = await axios.get(`http://192.168.43.101:8000/api/store/${storeId}`, { headers });
+        const storeResponse = await axios.get(`http://192.168.43.102:8000/api/store/${storeId}`, { headers });
 
-        // Check if current user is the owner
         if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
           setIsOwner(true);
         } else {
@@ -71,7 +70,6 @@ const EditProductPage = () => {
           return;
         }
 
-        // Map API response to form fields
         const initialProductData = {
           store_id: storeId,
           product_id: productId,
@@ -88,12 +86,14 @@ const EditProductPage = () => {
         setProductData(initialProductData);
         setOriginalProductData(initialProductData);
 
-        // Set preview images if they exist
+        // Set preview images with proper identification
         if (product.images && product.images.length > 0) {
           setPreviewImages(product.images.map(img => ({
             url: img.image_path,
             name: img.image_path.split('/').pop(),
-            isExisting: true
+            isExisting: true,
+            imageId: img.id, // Store the database ID for existing images
+            fileIndex: null // Not applicable for existing images
           })));
         }
 
@@ -113,7 +113,6 @@ const EditProductPage = () => {
     
     setProductData(prev => ({ ...prev, [name]: value }));
     
-    // Track modified fields by comparing with original data
     setModifiedFields(prev => ({
       ...prev,
       [name]: value !== originalProductData?.[name] ? value : undefined
@@ -130,15 +129,13 @@ const EditProductPage = () => {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      // Validate inventory price if type is inventory
       if (productData.type === 'inventory' && !productData.inventory_price) {
         throw new Error("Inventory price is required for inventory products");
       }
 
       const formData = new FormData();
       
-      // Always include required fields
-      formData.append("_method", "PUT"); // Laravel's way to handle PUT requests via POST
+      formData.append("_method", "PUT");
       formData.append("store_id", productData.store_id);
       formData.append("product_name", productData.product_name);
       formData.append("category", productData.category);
@@ -146,26 +143,23 @@ const EditProductPage = () => {
       formData.append("stock", productData.stock);
       formData.append("type", productData.type);
       
-      // Include optional fields if they exist
       if (productData.description) formData.append("description", productData.description);
       if (productData.inventory_price) formData.append("inventory_price", productData.inventory_price);
       
-      // Handle images - new files to upload
+      // Add new images
       selectedFiles.forEach(file => {
         formData.append("images[]", file);
       });
       
-      // Handle image removals - track which existing images to keep
-      const imagesToKeep = previewImages
-        .filter(img => img.isExisting)
-        .map(img => img.url.split('/').pop());
-      
-      if (imagesToKeep.length > 0) {
-        formData.append("images_to_keep", JSON.stringify(imagesToKeep));
+      // Add images to delete
+      if (imagesToDelete.length > 0) {
+        imagesToDelete.forEach(imageId => {
+          formData.append("delete_images[]", imageId);
+        });
       }
 
       const response = await axios.post(
-        `http://192.168.43.101:8000/api/product/${productId}`,
+        `http://192.168.43.102:8000/api/product/${productId}`,
         formData,
         {
           headers: {
@@ -180,7 +174,6 @@ const EditProductPage = () => {
     } catch (error) {
       console.error("Error updating product:", error);
       
-      // Display validation errors to user
       if (error.response?.status === 422) {
         const errorMessages = Object.values(error.response.data.errors)
           .flat()
@@ -197,9 +190,8 @@ const EditProductPage = () => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
-    // Validate files
     const validFiles = files.filter(file => {
-      if (file.size > 10 * 1024 * 1024) { // 10MB max
+      if (file.size > 10 * 1024 * 1024) {
         toast.error(`Image ${file.name} exceeds 10MB limit`);
         return false;
       }
@@ -212,23 +204,24 @@ const EditProductPage = () => {
     
     if (validFiles.length === 0) return;
     
-    // Update selected files
+    // Add to selected files
     setSelectedFiles(prev => [...prev, ...validFiles]);
     
-    // Create previews
-    validFiles.forEach(file => {
+    // Create previews for new files
+    validFiles.forEach((file, index) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImages(prev => [...prev, { 
           url: reader.result, 
           name: file.name,
-          isExisting: false
+          isExisting: false,
+          imageId: null,
+          fileIndex: selectedFiles.length + index // Track which file this preview corresponds to
         }]);
       };
       reader.readAsDataURL(file);
     });
 
-    // Mark images as modified
     setModifiedFields(prev => ({ ...prev, images: true }));
   };
 
@@ -236,12 +229,30 @@ const EditProductPage = () => {
     const imageToRemove = previewImages[index];
     
     if (imageToRemove.isExisting) {
-      // For existing images, we'll track their removal in the form data
-      setPreviewImages(prev => prev.filter((_, i) => i !== index));
+      // For existing images, add to delete list
+      setImagesToDelete(prev => [...prev, imageToRemove.imageId]);
     } else {
-      // For new images not yet uploaded, we can just remove them
-      setPreviewImages(prev => prev.filter((_, i) => i !== index));
-      setSelectedFiles(prev => prev.filter((_, i) => i !== index - (previewImages.length - selectedFiles.length)));
+      // For new images, remove from selectedFiles
+      const fileIndex = imageToRemove.fileIndex;
+      if (fileIndex !== null) {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== fileIndex));
+        
+        // Update fileIndex for remaining new images
+        setPreviewImages(prev => prev.map(img => {
+          if (!img.isExisting && img.fileIndex > fileIndex) {
+            return { ...img, fileIndex: img.fileIndex - 1 };
+          }
+          return img;
+        }));
+      }
+    }
+    
+    // Remove from preview images
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    
+    // Adjust current image index if necessary
+    if (currentImageIndex >= previewImages.length - 1) {
+      setCurrentImageIndex(Math.max(0, previewImages.length - 2));
     }
 
     // Reset file input if all images are removed
@@ -249,7 +260,6 @@ const EditProductPage = () => {
       fileInputRef.current.value = "";
     }
 
-    // Mark images as modified
     setModifiedFields(prev => ({ ...prev, images: true }));
   };
 
@@ -268,7 +278,7 @@ const EditProductPage = () => {
   };
 
   const hasChanges = () => {
-    return Object.keys(modifiedFields).length > 0 || selectedFiles.length > 0;
+    return Object.keys(modifiedFields).length > 0 || selectedFiles.length > 0 || imagesToDelete.length > 0;
   };
 
   if (isLoading) {
@@ -349,24 +359,6 @@ const EditProductPage = () => {
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Type*</label>
-                <select
-                  name="type"
-                  value={productData.type}
-                  onChange={handleChange}
-                  className={`w-full border rounded-md px-3 py-2 focus:ring-[#00796B] focus:border-[#00796B] ${
-                    isFieldModified('type') 
-                      ? 'border-[#00796B] bg-[#E8F5E9]' 
-                      : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="new">New Product</option>
-                  <option value="inventory">Inventory Product</option>
                 </select>
               </div>
 

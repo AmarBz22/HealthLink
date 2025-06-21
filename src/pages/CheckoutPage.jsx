@@ -41,7 +41,7 @@ const CheckoutPage = () => {
           'Accept': 'application/json'
         };
 
-        const response = await axios.get('http://192.168.43.101:8000/api/user', { headers });
+        const response = await axios.get('http://192.168.43.102:8000/api/user', { headers });
         setUserData({
           id: response.data.id,
           first_name: response.data.first_name,
@@ -108,7 +108,7 @@ const CheckoutPage = () => {
       console.log('Submitting order:', orderData);
 
       const response = await axios.post(
-        'http://192.168.43.101:8000/api/product-orders',
+        'http://192.168.43.102:8000/api/product-orders',
         orderData,
         { headers }
       );
