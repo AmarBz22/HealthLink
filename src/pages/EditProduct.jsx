@@ -55,12 +55,12 @@ const EditProductPage = () => {
         };
 
         const [productResponse, userResponse] = await Promise.all([
-          axios.get(`http://192.168.43.102:8000/api/product/${productId}?with_images=true`, { headers }),
-          axios.get('http://192.168.43.102:8000/api/user', { headers }).catch(() => null)
+          axios.get(`http://192.168.43.101:8000/api/product/${productId}?with_images=true`, { headers }),
+          axios.get('http://192.168.43.101:8000/api/user', { headers }).catch(() => null)
         ]);
 
         const product = productResponse.data;
-        const storeResponse = await axios.get(`http://192.168.43.102:8000/api/store/${storeId}`, { headers });
+        const storeResponse = await axios.get(`http://192.168.43.101:8000/api/store/${storeId}`, { headers });
 
         if (userResponse && storeResponse.data.owner_id === userResponse.data.id) {
           setIsOwner(true);
@@ -159,7 +159,7 @@ const EditProductPage = () => {
       }
 
       const response = await axios.post(
-        `http://192.168.43.102:8000/api/product/${productId}`,
+        `http://192.168.43.101:8000/api/product/${productId}`,
         formData,
         {
           headers: {

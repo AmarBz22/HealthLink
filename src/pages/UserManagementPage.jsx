@@ -25,7 +25,7 @@ const UsersManagementPage = () => {
         }
 
         // First verify if user is admin
-        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -41,7 +41,7 @@ const UsersManagementPage = () => {
         setCurrentAdminId(userResponse.data.id);
         
         // Then fetch users if admin
-        const usersResponse = await axios.get('http://192.168.43.102:8000/api/admin/users', {
+        const usersResponse = await axios.get('http://192.168.43.101:8000/api/admin/users', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -86,7 +86,7 @@ const UsersManagementPage = () => {
       const token = localStorage.getItem('authToken');
       
       if (currentAction === 'ban') {
-        await axios.post(`http://192.168.43.102:8000/api/users/${selectedUser.id}/ban`, {}, {
+        await axios.post(`http://192.168.43.101:8000/api/users/${selectedUser.id}/ban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -97,7 +97,7 @@ const UsersManagementPage = () => {
         ));
         toast.success('User banned successfully');
       } else {
-        await axios.post(`http://192.168.43.102:8000/api/users/${selectedUser.id}/unban`, {}, {
+        await axios.post(`http://192.168.43.101:8000/api/users/${selectedUser.id}/unban`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

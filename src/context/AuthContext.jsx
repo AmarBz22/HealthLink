@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
 
-      const response = await fetch("http://192.168.43.102:8000/api/user", {
+      const response = await fetch("http://192.168.43.101:8000/api/user", {
         headers: {
           Authorization: `Bearer ${authToken}`,
           Accept: "application/json",
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const response = await fetch("http://192.168.43.102:8000/api/login", {
+      const response = await fetch("http://192.168.43.101:8000/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (userData) => {
     try {
-      const response = await fetch("http://192.168.43.102:8000/api/register", {
+      const response = await fetch("http://192.168.43.101:8000/api/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -32,7 +32,7 @@ const Navbar = () => {
           return;
         }
   
-        const response = await axios.get('http://192.168.43.102:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             Authorization: `Bearer ${authToken}`,
             Accept: 'application/json',
@@ -72,7 +72,7 @@ const Navbar = () => {
     try {
       const authToken = localStorage.getItem("authToken");
       await axios.post(
-        "http://192.168.43.102:8000/api/logout",
+        "http://192.168.43.101:8000/api/logout",
         {},
         {
           headers: {

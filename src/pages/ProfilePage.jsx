@@ -22,7 +22,7 @@ const ProfilePage = () => {
     const fetchUserData = async () => {
       try {
         const authToken = localStorage.getItem('authToken');
-        const response = await axios.get('http://192.168.43.102:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             Authorization: `Bearer ${authToken}`,
             Accept: 'application/json',

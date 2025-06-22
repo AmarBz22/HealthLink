@@ -26,7 +26,7 @@ const Sidebar = () => {
 
       // Send the logout request with the authToken in the Authorization header
       await axios.post(
-        "http://192.168.43.102:8000/api/logout",
+        "http://192.168.43.101:8000/api/logout",
         {},
         {
           headers: {

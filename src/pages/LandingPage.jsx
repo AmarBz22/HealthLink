@@ -79,7 +79,7 @@ const LandingPage = () => {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
           };
-          const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
+          const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
           const currentUser = userResponse.data;
           setCurrentUserId(currentUser.id);
           setCurrentUserRole(currentUser.role);
@@ -101,7 +101,7 @@ const LandingPage = () => {
   // Fetch owner information for a store
   const fetchOwnerInfo = async (ownerId, headers) => {
     try {
-      const ownerResponse = await axios.get(`http://192.168.43.102:8000/api/users/${ownerId}`, { headers });
+      const ownerResponse = await axios.get(`http://192.168.43.101:8000/api/users/${ownerId}`, { headers });
       return ownerResponse.data;
     } catch (error) {
       console.error(`Error fetching owner data for ID ${ownerId}:`, error);
@@ -116,8 +116,8 @@ const LandingPage = () => {
         const token = localStorage.getItem('authToken');
         const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : {};
 
-        const productsResponse = await axios.get('http://192.168.43.102:8000/api/products', { headers });
-        const storesResponse = await axios.get('http://192.168.43.102:8000/api/stores', { headers });
+        const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
+        const storesResponse = await axios.get('http://192.168.43.101:8000/api/stores', { headers });
 
         // Process stores with owner information
         const processedStores = await Promise.all(
@@ -377,7 +377,7 @@ const LandingPage = () => {
                     key={product.product_id}
                     product={product}
                     isOwner={false}
-                    storageUrl="http://192.168.43.102:8000/storage"
+                    storageUrl="http://192.168.43.101:8000/storage"
                     onAddToCart={() => handleAddToCart(product)}
                     onViewDetails={() => handleViewDetails(product)}
                     className="h-full bg-white rounded-xl shadow-xl border border-gray-200/50"
@@ -469,7 +469,7 @@ const LandingPage = () => {
                       <ProductCard
                         product={product}
                         isOwner={false}
-                        storageUrl="http://192.168.43.102:8000/storage"
+                        storageUrl="http://192.168.43.101:8000/storage"
                         onAddToCart={() => handleAddToCart(product)}
                         onViewDetails={() => handleViewDetails(product)}
                         className="h-full bg-white rounded-xl shadow-xl border border-gray-200/50"
@@ -497,7 +497,7 @@ const LandingPage = () => {
                     showDelete={true}
                     currentUserId={currentUserId}
                     onDeleteSuccess={handleStoreDeleteSuccess}
-                    storageUrl="http://192.168.43.102:8000/storage"
+                    storageUrl="http://192.168.43.101:8000/storage"
                     className="bg-white rounded-xl shadow-xl border border-gray-200/50"
                   />
                 ))}

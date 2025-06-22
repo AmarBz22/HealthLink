@@ -57,7 +57,7 @@ const StoreCard = ({
         
         // Try different possible API endpoints
         let response;
-        let apiUrl = `http://192.168.43.102:8000/api/user/${store.owner_id}`;
+        let apiUrl = `http://192.168.43.101:8000/api/user/${store.owner_id}`;
         
         try {
           response = await axios.get(apiUrl, {
@@ -68,7 +68,7 @@ const StoreCard = ({
           });
         } catch (firstError) {
           // Try alternative endpoint
-          apiUrl = `http://192.168.43.102:8000/api/users/${store.owner_id}`;
+          apiUrl = `http://192.168.43.101:8000/api/users/${store.owner_id}`;
           response = await axios.get(apiUrl, {
             headers: { 
               Authorization: `Bearer ${token}`,
@@ -122,7 +122,7 @@ const StoreCard = ({
     setDeleting(true);
     try {
       const token = localStorage.getItem("authToken");
-      await axios.delete(`http://192.168.43.102:8000/api/store/${store.id}`, {
+      await axios.delete(`http://192.168.43.101:8000/api/store/${store.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       onDeleteSuccess(store.id);
@@ -151,7 +151,7 @@ const StoreCard = ({
           <div className="flex items-center">
             {store.logo_path ? (
               <img 
-                src={`http://192.168.43.102:8000/storage/${store.logo_path}`} 
+                src={`http://192.168.43.101:8000/storage/${store.logo_path}`} 
                 alt={`${storeName} logo`} 
                 className="w-14 h-14 object-cover rounded-full mr-3 border-2 border-white shadow-sm"
                 onError={(e) => {

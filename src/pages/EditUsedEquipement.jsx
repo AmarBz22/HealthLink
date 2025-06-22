@@ -55,10 +55,10 @@ const EditUsedEquipmentPage = () => {
 
         // Fetch equipment data and user data in parallel
         const [equipmentResponse, userResponse] = await Promise.all([
-          fetch(`http://192.168.43.102:8000/api/product/${id}?with_images=true`, {
+          fetch(`http://192.168.43.101:8000/api/product/${id}?with_images=true`, {
             headers,
           }),
-          fetch("http://192.168.43.102:8000/api/user", { headers }).catch(() => null),
+          fetch("http://192.168.43.101:8000/api/user", { headers }).catch(() => null),
         ]);
 
         if (!equipmentResponse.ok) {
@@ -69,7 +69,7 @@ const EditUsedEquipmentPage = () => {
         const equipment = await equipmentResponse.json();
         // Assume store_id is part of equipment data or fetch it separately
         const storeResponse = await fetch(
-          `http://192.168.43.102:8000/api/store/${equipment.store_id}`,
+          `http://192.168.43.101:8000/api/store/${equipment.store_id}`,
           { headers }
         );
 
@@ -284,7 +284,7 @@ const EditUsedEquipmentPage = () => {
         });
       }
 
-      const response = await fetch(`http://192.168.43.102:8000/api/product/${id}`, {
+      const response = await fetch(`http://192.168.43.101:8000/api/product/${id}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

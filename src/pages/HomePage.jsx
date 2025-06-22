@@ -93,7 +93,7 @@ const HomePage = () => {
         // Fetch all products
         let productsData = [];
         try {
-          const productsResponse = await fetch('http://192.168.43.102:8000/api/products');
+          const productsResponse = await fetch('http://192.168.43.101:8000/api/products');
           if (!productsResponse.ok) {
             throw new Error(`Products API returned ${productsResponse.status}: ${productsResponse.statusText}`);
           }
@@ -109,7 +109,7 @@ const HomePage = () => {
           setRecommendationsLoading(true);
           try {
             const token = localStorage.getItem('authToken');
-            const recommendationsResponse = await fetch('http://192.168.43.102:8000/api/recommendations', {
+            const recommendationsResponse = await fetch('http://192.168.43.101:8000/api/recommendations', {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -130,7 +130,7 @@ const HomePage = () => {
         // Fetch stores
         let storesData = [];
         try {
-          const storesResponse = await fetch('http://192.168.43.102:8000/api/stores');
+          const storesResponse = await fetch('http://192.168.43.101:8000/api/stores');
           if (!storesResponse.ok) {
             throw new Error(`Stores API returned ${storesResponse.status}: ${storesResponse.statusText}`);
           }
@@ -419,7 +419,7 @@ const HomePage = () => {
                   )}
                   <ProductCard
                     product={product}
-                    storageUrl="http://192.168.43.102:8000/storage"
+                    storageUrl="http://192.168.43.101:8000/storage"
                     onAddToCart={() => handleAddToCart(product)}
                     onViewDetails={() => handleViewDetails(product)}
                     className="h-full"
@@ -543,7 +543,7 @@ const HomePage = () => {
                             </div>
                             <ProductCard
                               product={product}
-                              storageUrl="http://192.168.43.102:8000/storage"
+                              storageUrl="http://192.168.43.101:8000/storage"
                               onAddToCart={() => handleAddToCart(product)}
                               onViewDetails={() => handleViewDetails(product)}
                               className="h-full"
@@ -612,7 +612,7 @@ const HomePage = () => {
                     <div key={product.product_id} className="flex-none w-64 snap-start">
                       <ProductCard
                         product={product}
-                        storageUrl="http://192.168.43.102:8000/storage"
+                        storageUrl="http://192.168.43.101:8000/storage"
                         onAddToCart={() => handleAddToCart(product)}
                         onViewDetails={() => handleViewDetails(product)}
                         className="h-full"

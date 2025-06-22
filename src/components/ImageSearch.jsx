@@ -61,7 +61,7 @@ const ImageSearchComponent = ({
       const formData = new FormData();
       formData.append('image', searchImage);
   
-      const response = await fetch('http://192.168.43.102:8000/api/search-by-image', {
+      const response = await fetch('http://192.168.43.101:8000/api/search-by-image', {
         method: 'POST',
         body: formData,
         headers: {

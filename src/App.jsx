@@ -58,7 +58,7 @@ function useAuth() {
           return;
         }
 
-        const response = await fetch("http://192.168.43.102:8000/api/user", {
+        const response = await fetch("http://192.168.43.101:8000/api/user", {
           headers: {
             Authorization: `Bearer ${authToken}`,
             Accept: "application/json",

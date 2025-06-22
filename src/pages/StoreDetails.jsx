@@ -59,7 +59,7 @@ const StoreDetailsPage = () => {
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [productToInventory, setProductToInventory] = useState(null);
   const [processingInventory, setProcessingInventory] = useState(false);
-  const storageUrl = 'http://192.168.43.102:8000/storage';
+  const storageUrl = 'http://192.168.43.101:8000/storage';
 
   useEffect(() => {
     const fetchStoreData = async () => {
@@ -78,9 +78,9 @@ const StoreDetailsPage = () => {
         };
 
         const [userResponse, storeResponse, productsResponse] = await Promise.all([
-          axios.get('http://192.168.43.102:8000/api/user', { headers }),
-          axios.get(`http://192.168.43.102:8000/api/store/${id}`, { headers }),
-          axios.get(`http://192.168.43.102:8000/api/products/${id}`, { headers }),
+          axios.get('http://192.168.43.101:8000/api/user', { headers }),
+          axios.get(`http://192.168.43.101:8000/api/store/${id}`, { headers }),
+          axios.get(`http://192.168.43.101:8000/api/products/${id}`, { headers }),
         ]);
         console.log(productsResponse)
         const userData = userResponse.data;
@@ -103,7 +103,7 @@ const StoreDetailsPage = () => {
         // Fetch owner information if owner_id is available
         if (storeData.owner_id) {
           try {
-            const ownerResponse = await axios.get(`http://192.168.43.102:8000/api/users/${storeData.owner_id}`, { headers });
+            const ownerResponse = await axios.get(`http://192.168.43.101:8000/api/users/${storeData.owner_id}`, { headers });
             setOwner(ownerResponse.data);
           } catch (ownerError) {
             console.error('Error fetching owner data:', ownerError);
@@ -162,7 +162,7 @@ const StoreDetailsPage = () => {
         Accept: 'application/json',
       };
 
-      await axios.delete(`http://192.168.43.102:8000/api/product/${productToDelete.product_id}`, { headers });
+      await axios.delete(`http://192.168.43.101:8000/api/product/${productToDelete.product_id}`, { headers });
 
       const updatedProducts = products.filter((p) => p.product_id !== productToDelete.product_id);
       setProducts(updatedProducts);

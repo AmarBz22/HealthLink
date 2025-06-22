@@ -37,7 +37,7 @@ const AdminOrders = () => {
         }
 
         // Verify if user is admin
-        const userResponse = await axios.get('http://192.168.43.102:8000/api/user', {
+        const userResponse = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -53,7 +53,7 @@ const AdminOrders = () => {
         setCurrentAdminId(userResponse.data.id);
 
         // Fetch orders if admin
-        const ordersResponse = await axios.get('http://192.168.43.102:8000/api/product-orders', {
+        const ordersResponse = await axios.get('http://192.168.43.101:8000/api/product-orders', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -101,7 +101,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const response = await axios.get(`http://192.168.43.102:8000/api/users/${userId}`, {
+      const response = await axios.get(`http://192.168.43.101:8000/api/users/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'

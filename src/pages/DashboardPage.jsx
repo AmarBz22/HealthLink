@@ -86,7 +86,7 @@ const DashboardPage = () => {
         };
 
         // Verify user role and authorization
-        const userResponse = await fetchWithErrorHandling('http://192.168.43.102:8000/api/user', headers);
+        const userResponse = await fetchWithErrorHandling('http://192.168.43.101:8000/api/user', headers);
         
         if (!userResponse || Object.keys(userResponse).length === 0) {
           toast.error('Failed to authenticate user');
@@ -115,9 +115,9 @@ const DashboardPage = () => {
         
         if (userRoleLower === 'admin') {
           const [usersData, storesData, productsData] = await Promise.all([
-            fetchWithErrorHandling('http://192.168.43.102:8000/api/admin/users', headers),
-            fetchWithErrorHandling('http://192.168.43.102:8000/api/stores', headers),
-            fetchWithErrorHandling('http://192.168.43.102:8000/api/products', headers)
+            fetchWithErrorHandling('http://192.168.43.101:8000/api/admin/users', headers),
+            fetchWithErrorHandling('http://192.168.43.101:8000/api/stores', headers),
+            fetchWithErrorHandling('http://192.168.43.101:8000/api/products', headers)
           ]);
           
           const formattedUsers = Array.isArray(usersData.users) ? usersData.users : 
@@ -131,9 +131,9 @@ const DashboardPage = () => {
           });
         } else if (userRoleLower === 'supplier') {
           const [allStoresData, allProductsData, supplierOrdersData] = await Promise.all([
-            fetchWithErrorHandling('http://192.168.43.102:8000/api/stores', headers),
-            fetchWithErrorHandling('http://192.168.43.102:8000/api/products', headers),
-            fetchWithErrorHandling(`http://192.168.43.102:8000/api/product-orders/seller/${userResponse.id}`, headers)
+            fetchWithErrorHandling('http://192.168.43.101:8000/api/stores', headers),
+            fetchWithErrorHandling('http://192.168.43.101:8000/api/products', headers),
+            fetchWithErrorHandling(`http://192.168.43.101:8000/api/product-orders/seller/${userResponse.id}`, headers)
           ]);
           
           const supplierStores = Array.isArray(allStoresData) ? 

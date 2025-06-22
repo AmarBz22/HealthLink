@@ -18,7 +18,7 @@ const UsedMedicalEquipmentPage = () => {
   const [filterCondition, setFilterCondition] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState(''); // New filter for ownership
   const [deletingProductId, setDeletingProductId] = useState(null);
-  const storageUrl = 'http://192.168.43.102:8000/storage';
+  const storageUrl = 'http://192.168.43.101:8000/storage';
   
   // Image search states
   const [showImageSearch, setShowImageSearch] = useState(false);
@@ -62,7 +62,7 @@ const UsedMedicalEquipmentPage = () => {
         };
 
         // Direct API call to fetch all products
-        const productsResponse = await axios.get('http://192.168.43.102:8000/api/products', { headers });
+        const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
         
         // Filter products to only show those with type="used_equipment"
         const filteredProducts = Array.isArray(productsResponse.data) 
@@ -77,7 +77,7 @@ const UsedMedicalEquipmentPage = () => {
           filteredProducts.map(async (product) => {
             try {
               const ownershipResponse = await axios.get(
-                `http://192.168.43.102:8000/api/products/${product.product_id}/check-owner`, 
+                `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
                 { headers }
               );
               ownershipChecks[product.product_id] = ownershipResponse.data.isOwner || false;
@@ -120,7 +120,7 @@ const UsedMedicalEquipmentPage = () => {
         };
   
         await axios.delete(
-          `http://192.168.43.102:8000/api/product/${product.product_id}`, 
+          `http://192.168.43.101:8000/api/product/${product.product_id}`, 
           { headers }
         );
   

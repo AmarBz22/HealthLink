@@ -33,7 +33,7 @@ const StoreManagementPage = () => {
           return;
         }
 
-        const response = await axios.get('http://192.168.43.102:8000/api/user', {
+        const response = await axios.get('http://192.168.43.101:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
@@ -105,7 +105,7 @@ const StoreManagementPage = () => {
       }
 
       // Send as JSON instead of FormData since no image
-      const response = await axios.post('http://192.168.43.102:8000/api/store', {
+      const response = await axios.post('http://192.168.43.101:8000/api/store', {
         store_name: storeInfo.store_name,
         phone: storeInfo.phone,
         address: storeInfo.address,
@@ -138,7 +138,7 @@ const StoreManagementPage = () => {
           const newAuthToken = refreshResponse.data.authToken;
           localStorage.setItem('authToken', newAuthToken);
           
-          const retryResponse = await axios.post('http://192.168.43.102:8000/api/store', {
+          const retryResponse = await axios.post('http://192.168.43.101:8000/api/store', {
             store_name: storeInfo.store_name,
             phone: storeInfo.phone,
             address: storeInfo.address,

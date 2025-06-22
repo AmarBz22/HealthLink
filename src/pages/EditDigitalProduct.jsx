@@ -20,7 +20,7 @@ const EditDigitalProduct = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Base URL for images (adjust if your storage URL differs)
-  const BASE_URL = 'http://192.168.43.102:8000';
+  const BASE_URL = 'http://192.168.43.101:8000';
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -32,7 +32,7 @@ const EditDigitalProduct = () => {
       }
 
       try {
-        const response = await fetch(`http://192.168.43.102:8000/api/digital-products/${id}`, {
+        const response = await fetch(`http://192.168.43.101:8000/api/digital-products/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -146,7 +146,7 @@ const EditDigitalProduct = () => {
         submitData.append('product_image', formData.product_image);
       }
 
-      const response = await fetch(`http://192.168.43.102:8000/api/digital-products/${id}`, {
+      const response = await fetch(`http://192.168.43.101:8000/api/digital-products/${id}`, {
         method: 'POST', // Use POST with _method=PUT for Laravel
         headers: {
           'Accept': 'application/json',

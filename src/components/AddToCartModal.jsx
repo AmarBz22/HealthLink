@@ -54,7 +54,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
           <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden mr-4 flex-shrink-0">
             {product.image_path ? (
               <img 
-                src={`http://192.168.43.102:8000/storage/${product.image_path}`}
+                src={`http://192.168.43.101:8000/storage/${product.image_path}`}
                 alt={product.product_name}
                 className="w-full h-full object-cover"
                 onError={(e) => {

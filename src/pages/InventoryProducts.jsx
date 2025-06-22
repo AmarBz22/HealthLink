@@ -17,7 +17,7 @@ const InventoryProductsPage = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState('');
   const [deletingProductId, setDeletingProductId] = useState(null);
-  const storageUrl = 'http://192.168.43.102:8000/storage';
+  const storageUrl = 'http://192.168.43.101:8000/storage';
   
   // User role state (kept for display purposes but not for authorization)
   const [userRole, setUserRole] = useState(null);
@@ -56,14 +56,14 @@ const InventoryProductsPage = () => {
 
         // Get user role for display purposes (no authorization check)
         try {
-          const userResponse = await axios.get('http://192.168.43.102:8000/api/user', { headers });
+          const userResponse = await axios.get('http://192.168.43.101:8000/api/user', { headers });
           setUserRole(userResponse.data.role);
         } catch (error) {
           console.warn('Could not fetch user role:', error);
         }
 
         // Fetch inventory products - accessible to all authenticated users
-        const productsResponse = await axios.get('http://192.168.43.102:8000/api/products', { headers });
+        const productsResponse = await axios.get('http://192.168.43.101:8000/api/products', { headers });
         
         // Filter products to only show those with type="inventory"
         const filteredProducts = Array.isArray(productsResponse.data) 
@@ -78,7 +78,7 @@ const InventoryProductsPage = () => {
           filteredProducts.map(async (product) => {
             try {
               const ownershipResponse = await axios.get(
-                `http://192.168.43.102:8000/api/products/${product.product_id}/check-owner`, 
+                `http://192.168.43.101:8000/api/products/${product.product_id}/check-owner`, 
                 { headers }
               );
               ownershipChecks[product.product_id] = ownershipResponse.data.isOwner || false;
@@ -122,7 +122,7 @@ const InventoryProductsPage = () => {
         };
   
         await axios.delete(
-          `http://192.168.43.102:8000/api/product/${product.product_id}`, 
+          `http://192.168.43.101:8000/api/product/${product.product_id}`, 
           { headers }
         );
   
